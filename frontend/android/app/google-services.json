@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "551376248292",
+    "project_id": "explore-lesotho-9f53c",
+    "storage_bucket": "explore-lesotho-9f53c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:551376248292:android:4c08d21a495e395ea17bf1",
+        "android_client_info": {
+          "package_name": "com.example.explore_lesotho"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA9GgNaLu5MC_zB4fD0m1uVAWp3uG-_jJo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

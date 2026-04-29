@@ -1,0 +1,85 @@
+name: explore_lesotho_frontend
+description: Explore Lesotho - Digital Tourism Platform
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  
+  # UI & Icons
+  cupertino_icons: ^1.0.6
+  google_fonts: ^8.0.2
+  flutter_svg: ^2.0.9
+  
+  # State Management
+  provider: ^6.1.1
+  
+  # Offline Storage
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  shared_preferences: ^2.2.2
+  path_provider: ^2.1.1
+  
+  # Connectivity
+  connectivity_plus: ^7.1.0
+  
+  # Utilities
+  intl: ^0.20.2
+  uuid: ^4.3.3
+  
+  # Network
+  http: ^1.2.0
+  socket_io_client: ^3.1.4
+  
+  # Image & Media
+  image_picker: ^1.0.7
+  file_picker: ^11.0.0
+  cached_network_image: ^3.3.1
+
+  # Maps & Location
+  geolocator: ^14.0.2
+  google_maps_flutter: ^2.5.3
+  
+  # Calendar
+  table_calendar: ^3.0.9
+  
+  # Permissions
+  permission_handler: ^12.0.1
+  
+  # QR Code
+  qr_flutter: ^4.1.0
+  
+  # Charts
+  fl_chart: ^1.2.0
+  
+  # URL Launching (Social Media, Phone, Email, WhatsApp)
+  url_launcher: ^6.2.0
+  
+  # Sharing
+  share_plus: ^12.0.2
+  flutter_local_notifications: ^21.0.0
+  timezone: ^0.11.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.8
+  hive_generator: ^2.0.1
+
+dependency_overrides:
+  path_provider_foundation: 2.5.1
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/sounds/

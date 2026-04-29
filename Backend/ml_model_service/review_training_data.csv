@@ -1,0 +1,5 @@
+review_id,listing_id,user_name,rating,comment,created_date
+R001,L001,John D.,5,"Amazing place, beautiful views!",2024-06-04
+R002,L002,Mary S.,4,"Great adventure, ponies well trained",2024-06-07
+R003,L001,Peter K.,5,"Excellent service, will come back",2024-06-13
+R004,L003,Sarah M.,3,Good but expensive,2024-06-17
