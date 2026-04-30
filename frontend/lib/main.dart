@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/localizations/app_localizations_delegate.dart';
 import 'core/themes/color_palette.dart';
@@ -18,7 +17,6 @@ import 'providers/review_provider.dart';
 import 'providers/test_chat_provider.dart';
 import 'providers/wishlist_provider.dart';
 import 'screens/admin/admin_dashboard.dart';
-import 'screens/auth/auth_wrapper.dart';
 import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
@@ -26,6 +24,7 @@ import 'screens/bookings/my_bookings_screen.dart';
 import 'screens/chat/chat_list_screen.dart';
 import 'screens/events/my_event_tickets_screen.dart';
 import 'screens/home/tourist_dashboard.dart';
+import 'screens/onboarding/onboarding_gate.dart';
 import 'screens/unauthorized_screen.dart';
 import 'screens/vendor/vendor_dashboard.dart';
 import 'services/connectivity_service.dart';
@@ -35,15 +34,8 @@ import 'utils/constants.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService().initialize();
-  await _clearAuthData();
 
   runApp(const MyApp());
-}
-
-Future<void> _clearAuthData() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.remove(Constants.tokenKey);
-  await prefs.remove(Constants.userKey);
 }
 
 class MyApp extends StatelessWidget {
@@ -222,8 +214,9 @@ class MyApp extends StatelessWidget {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
-            home: const AuthWrapper(),
+            home: const OnboardingGate(),
             routes: {
+              '/onboarding': (context) => const WelcomeStartScreen(),
               '/login': (context) => const LoginScreen(),
               '/forgot-password': (context) => const ForgotPasswordScreen(),
               '/register': (context) => const RegisterScreen(),

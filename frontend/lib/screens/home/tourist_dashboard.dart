@@ -1019,8 +1019,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
     final topMarkets = _mapList(legacyIntelligence['top_markets']);
     final sentimentHighlights =
         _mapList(legacyIntelligence['sentiment_highlights']);
-    final seasonalHotspots =
-        _mapList(legacyIntelligence['seasonal_hotspots']);
+    final seasonalHotspots = _mapList(legacyIntelligence['seasonal_hotspots']);
 
     return Container(
       width: double.infinity,
@@ -1096,7 +1095,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 children: [
                   if (peakMonth.isNotEmpty)
                     _buildTouristInsightChip(
-                      title: locale.translate('Peak Month', 'Kgwedi e Chesehang'),
+                      title:
+                          locale.translate('Peak Month', 'Kgwedi e Chesehang'),
                       value:
                           '${peakMonth['month'] ?? '-'} • ${peakMonth['arrivals'] ?? 0}',
                       accent: Colors.deepOrange,
@@ -2296,297 +2296,303 @@ class _TouristDashboardState extends State<TouristDashboard> {
           bottomRight: Radius.circular(20),
         ),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: isMobile ? 18 : 24,
-            backgroundColor: ColorPalette.primaryGreen,
-            child: Text(
-              authProvider.user?.name[0] ?? 'U',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: isMobile ? 14 : 16,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: isMobile ? 18 : 24,
+              backgroundColor: ColorPalette.primaryGreen,
+              child: Text(
+                authProvider.user?.name[0] ?? 'U',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: isMobile ? 14 : 16,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: 12),
+            ConstrainedBox(
+              constraints: BoxConstraints(minWidth: isMobile ? 160 : 240),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Welcome back,',
+                    style: TextStyle(
+                      fontSize: fontSize - 2,
+                      color: Colors.white70,
+                    ),
+                  ),
+                  Text(
+                    authProvider.user?.name ?? 'Explorer',
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Stack(
               children: [
-                Text(
-                  'Welcome back,',
-                  style: TextStyle(
-                    fontSize: fontSize - 2,
-                    color: Colors.white70,
+                IconButton(
+                  icon:
+                      const Icon(Icons.notifications_none, color: Colors.white),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.black.withValues(alpha: 0.22),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const WishlistNotificationsScreen(),
+                      ),
+                    );
+                  },
+                  tooltip: 'Notifications',
+                ),
+                if (notificationProvider.unreadCount > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        '${notificationProvider.unreadCount}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            Stack(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chat_bubble_outline,
+                      color: Colors.white),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.black.withValues(alpha: 0.22),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ChatListScreen(),
+                      ),
+                    );
+                  },
+                  tooltip: 'Messages',
+                ),
+                if (chatProvider != null && chatProvider.totalUnread > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        '${chatProvider.totalUnread}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.white),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black.withValues(alpha: 0.22),
+              ),
+              onPressed: () {
+                listingProvider.loadListings();
+                bookingProvider.refresh();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      locale.translate('Data refreshed', 'Data e nchafatsoe'),
+                    ),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+              tooltip: locale.translate('Refresh', 'Nchafatsa'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.language, color: Colors.white),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black.withValues(alpha: 0.22),
+              ),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text(
+                      locale.translate('Select Language', 'Khetha Puo'),
+                    ),
+                    content: Consumer<LocaleProvider>(
+                      builder: (context, localeProvider, child) {
+                        final isEnglish =
+                            localeProvider.locale.languageCode == 'en';
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ListTile(
+                              title: const Text('English'),
+                              trailing: isEnglish
+                                  ? const Icon(Icons.check, color: Colors.green)
+                                  : null,
+                              onTap: () async {
+                                await localeProvider.setLocale('en');
+                                if (context.mounted) Navigator.pop(context);
+                              },
+                            ),
+                            ListTile(
+                              title: const Text('Sesotho sa Lesotho'),
+                              trailing: !isEnglish
+                                  ? const Icon(Icons.check, color: Colors.green)
+                                  : null,
+                              onTap: () async {
+                                await localeProvider.setLocale('st');
+                                if (context.mounted) Navigator.pop(context);
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+              tooltip: locale.translate('Change Language', 'Fetola Puo'),
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.favorite_border,
+                color: Colors.white,
+                size: ResponsiveLayout.getIconSize(context),
+              ),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black.withValues(alpha: 0.22),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const WishlistScreen(),
+                  ),
+                );
+              },
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
+              onSelected: (value) {
+                if (value == 'bookings') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MyBookingsScreen(),
+                    ),
+                  );
+                } else if (value == 'event_tickets') {
+                  Navigator.pushNamed(context, '/my-event-tickets');
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'bookings',
+                  child: Row(
+                    children: [
+                      Icon(Icons.book_online),
+                      SizedBox(width: 8),
+                      Text('My Bookings'),
+                    ],
                   ),
                 ),
-                Text(
-                  authProvider.user?.name ?? 'Explorer',
-                  style: TextStyle(
-                    fontSize: fontSize,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                const PopupMenuItem(
+                  value: 'event_tickets',
+                  child: Row(
+                    children: [
+                      Icon(Icons.confirmation_number),
+                      SizedBox(width: 8),
+                      Text('My Event Tickets'),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none, color: Colors.white),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.black.withValues(alpha: 0.22),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const WishlistNotificationsScreen(),
-                    ),
-                  );
-                },
-                tooltip: 'Notifications',
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black.withValues(alpha: 0.22),
               ),
-              if (notificationProvider.unreadCount > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    child: Text(
-                      '${notificationProvider.unreadCount}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Logout'),
+                    content: const Text('Are you sure you want to logout?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          Stack(
-            children: [
-              IconButton(
-                icon:
-                    const Icon(Icons.chat_bubble_outline, color: Colors.white),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.black.withValues(alpha: 0.22),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ChatListScreen(),
-                    ),
-                  );
-                },
-                tooltip: 'Messages',
-              ),
-              if (chatProvider != null && chatProvider.totalUnread > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    child: Text(
-                      '${chatProvider.totalUnread}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
+                        child: const Text('Logout'),
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.black.withValues(alpha: 0.22),
-            ),
-            onPressed: () {
-              listingProvider.loadListings();
-              bookingProvider.refresh();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    locale.translate('Data refreshed', 'Data e nchafatsoe'),
-                  ),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            },
-            tooltip: locale.translate('Refresh', 'Nchafatsa'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.language, color: Colors.white),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.black.withValues(alpha: 0.22),
-            ),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: Text(
-                    locale.translate('Select Language', 'Khetha Puo'),
-                  ),
-                  content: Consumer<LocaleProvider>(
-                    builder: (context, localeProvider, child) {
-                      final isEnglish =
-                          localeProvider.locale.languageCode == 'en';
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ListTile(
-                            title: const Text('English'),
-                            trailing: isEnglish
-                                ? const Icon(Icons.check, color: Colors.green)
-                                : null,
-                            onTap: () async {
-                              await localeProvider.setLocale('en');
-                              if (context.mounted) Navigator.pop(context);
-                            },
-                          ),
-                          ListTile(
-                            title: const Text('Sesotho sa Lesotho'),
-                            trailing: !isEnglish
-                                ? const Icon(Icons.check, color: Colors.green)
-                                : null,
-                            onTap: () async {
-                              await localeProvider.setLocale('st');
-                              if (context.mounted) Navigator.pop(context);
-                            },
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              );
-            },
-            tooltip: locale.translate('Change Language', 'Fetola Puo'),
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.favorite_border,
-              color: Colors.white,
-              size: ResponsiveLayout.getIconSize(context),
-            ),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.black.withValues(alpha: 0.22),
-            ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const WishlistScreen(),
-                ),
-              );
-            },
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            onSelected: (value) {
-              if (value == 'bookings') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const MyBookingsScreen(),
+                    ],
                   ),
                 );
-              } else if (value == 'event_tickets') {
-                Navigator.pushNamed(context, '/my-event-tickets');
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'bookings',
-                child: Row(
-                  children: [
-                    Icon(Icons.book_online),
-                    SizedBox(width: 8),
-                    Text('My Bookings'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'event_tickets',
-                child: Row(
-                  children: [
-                    Icon(Icons.confirmation_number),
-                    SizedBox(width: 8),
-                    Text('My Event Tickets'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.black.withValues(alpha: 0.22),
-            ),
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Logout'),
-                  content: const Text('Are you sure you want to logout?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.red,
-                      ),
-                      child: const Text('Logout'),
-                    ),
-                  ],
-                ),
-              );
 
-              if (confirm == true) {
-                await authProvider.logout();
-                if (context.mounted) {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const LoginScreen(),
-                    ),
-                    (route) => false,
-                  );
+                if (confirm == true) {
+                  await authProvider.logout();
+                  if (context.mounted) {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LoginScreen(),
+                      ),
+                      (route) => false,
+                    );
+                  }
                 }
-              }
-            },
-            tooltip: 'Logout',
-          ),
-        ],
+              },
+              tooltip: 'Logout',
+            ),
+          ],
+        ),
       ),
     );
   }

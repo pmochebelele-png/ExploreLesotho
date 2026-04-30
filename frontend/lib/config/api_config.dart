@@ -1,12 +1,19 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConfig {
+  static const String productionBaseUrl =
+      'https://explorelesotho-production.up.railway.app/api';
+
   static const String _apiBaseUrl =
       String.fromEnvironment('API_BASE_URL', defaultValue: '');
 
   static String get baseUrl {
     if (_apiBaseUrl.isNotEmpty) {
       return _apiBaseUrl;
+    }
+
+    if (kReleaseMode) {
+      return productionBaseUrl;
     }
 
     if (kIsWeb) {
@@ -23,7 +30,7 @@ class ApiConfig {
   }
 
   static String get deviceSetupHint =>
-      'For a real phone run with --dart-define=API_BASE_URL=http://YOUR-PC-IP:3001/api';
+      'Production APKs use $productionBaseUrl. For local testing pass --dart-define=API_BASE_URL=http://YOUR-PC-IP:3001/api';
 
   static const int connectionTimeout = 30000;
   static const int receiveTimeout = 30000;

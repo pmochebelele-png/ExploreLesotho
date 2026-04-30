@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/themes/color_palette.dart';
 import '../../utils/responsive_layout.dart';
+import '../../widgets/explore_lesotho_logo.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
@@ -32,9 +33,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     authProvider.clearError();
-    
+
     final success = await authProvider.login(
       _emailController.text.trim(),
       _passwordController.text,
@@ -51,7 +52,8 @@ class _LoginScreenState extends State<LoginScreen> {
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Your vendor account is pending approval. You will be notified when approved.'),
+                content: Text(
+                    'Your vendor account is pending approval. You will be notified when approved.'),
                 backgroundColor: Colors.orange,
                 duration: Duration(seconds: 3),
               ),
@@ -94,28 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Logo
-                  Container(
-                    width: isMobile ? 80 : 100,
-                    height: isMobile ? 80 : 100,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.explore,
-                        size: 50,
-                        color: ColorPalette.primaryGreen,
-                      ),
-                    ),
-                  ),
+                  ExploreLesothoLogo(size: isMobile ? 84 : 104),
                   const SizedBox(height: 24),
                   Text(
                     'Explore Lesotho',
@@ -141,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 48),
-                  
+
                   // Login Form Card
                   Container(
                     padding: const EdgeInsets.all(24),
@@ -189,7 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             },
                           ),
                           const SizedBox(height: 16),
-                          
+
                           // Password Field
                           TextFormField(
                             controller: _passwordController,
@@ -230,7 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               return null;
                             },
                           ),
-                          
+
                           // Remember Me & Forgot Password
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -272,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ],
                           ),
-                          
+
                           // Error Message
                           if (authProvider.error != null) ...[
                             const SizedBox(height: 12),
@@ -284,7 +265,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.error_outline, color: Colors.red.shade700),
+                                  Icon(Icons.error_outline,
+                                      color: Colors.red.shade700),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -299,17 +281,19 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ],
-                          
+
                           const SizedBox(height: 24),
-                          
+
                           // Login Button
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: authProvider.isLoading ? null : _handleLogin,
+                              onPressed:
+                                  authProvider.isLoading ? null : _handleLogin,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: ColorPalette.primaryGreen,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -336,9 +320,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Register Link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/themes/color_palette.dart';
 import '../../utils/responsive_layout.dart';
+import '../../widgets/explore_lesotho_logo.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -20,13 +21,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _phoneController = TextEditingController();
-  
+
   // Vendor specific fields
   final _businessNameController = TextEditingController();
   final _businessPhoneController = TextEditingController();
   final _businessAddressController = TextEditingController();
   final _businessTypeController = TextEditingController();
-  
+
   String _selectedRole = 'tourist';
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
@@ -70,13 +71,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     bool success;
-    
+
     if (_selectedRole == 'tourist') {
       success = await authProvider.registerTourist(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+        phone: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
       );
     } else {
       success = await authProvider.registerVendor(
@@ -84,19 +87,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
         businessName: _businessNameController.text.trim(),
-        phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-        businessPhone: _businessPhoneController.text.trim().isEmpty ? null : _businessPhoneController.text.trim(),
-        businessAddress: _businessAddressController.text.trim().isEmpty ? null : _businessAddressController.text.trim(),
-        businessType: _businessTypeController.text.trim().isEmpty ? null : _businessTypeController.text.trim(),
+        phone: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
+        businessPhone: _businessPhoneController.text.trim().isEmpty
+            ? null
+            : _businessPhoneController.text.trim(),
+        businessAddress: _businessAddressController.text.trim().isEmpty
+            ? null
+            : _businessAddressController.text.trim(),
+        businessType: _businessTypeController.text.trim().isEmpty
+            ? null
+            : _businessTypeController.text.trim(),
       );
     }
-    
+
     if (success && mounted) {
       final user = authProvider.user;
       if (user != null) {
         if (user.isVendor) {
-          final matchedCultureProfile =
-              user.linkedCultureVendorId != null &&
+          final matchedCultureProfile = user.linkedCultureVendorId != null &&
               user.linkedCultureVendorId!.isNotEmpty;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -111,7 +121,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           );
         }
-        
+
         if (user.isAdmin) {
           Navigator.pushReplacementNamed(context, '/admin-dashboard');
         } else if (user.isVendor) {
@@ -159,32 +169,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
-                
+
                 const SizedBox(height: 10),
-                
+
                 // Header
-                Container(
-                  width: isMobile ? 70 : 80,
-                  height: isMobile ? 70 : 80,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.person_add,
-                      size: 40,
-                      color: ColorPalette.primaryGreen,
-                    ),
-                  ),
-                ),
+                ExploreLesothoLogo(size: isMobile ? 72 : 84),
                 const SizedBox(height: 16),
                 Text(
                   'Create Account',
@@ -202,7 +191,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                
+
                 // Registration Form Card
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -223,7 +212,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       children: [
                         // Role Selection
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(12),
@@ -232,9 +222,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             children: [
                               Expanded(
                                 child: GestureDetector(
-                                  onTap: () => setState(() => _selectedRole = 'tourist'),
+                                  onTap: () =>
+                                      setState(() => _selectedRole = 'tourist'),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
                                     decoration: BoxDecoration(
                                       color: _selectedRole == 'tourist'
                                           ? ColorPalette.primaryGreen
@@ -257,9 +249,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               Expanded(
                                 child: GestureDetector(
-                                  onTap: () => setState(() => _selectedRole = 'vendor'),
+                                  onTap: () =>
+                                      setState(() => _selectedRole = 'vendor'),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
                                     decoration: BoxDecoration(
                                       color: _selectedRole == 'vendor'
                                           ? ColorPalette.primaryGreen
@@ -284,7 +278,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // Full Name
                         TextFormField(
                           controller: _nameController,
@@ -310,7 +304,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                         ),
                         const SizedBox(height: 12),
-                        
+
                         // Email
                         TextFormField(
                           controller: _emailController,
@@ -340,7 +334,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                         ),
                         const SizedBox(height: 12),
-                        
+
                         // Password
                         TextFormField(
                           controller: _passwordController,
@@ -382,7 +376,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                         ),
                         const SizedBox(height: 12),
-                        
+
                         // Confirm Password
                         TextFormField(
                           controller: _confirmPasswordController,
@@ -398,7 +392,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               onPressed: () {
                                 setState(() {
-                                  _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                                  _isConfirmPasswordVisible =
+                                      !_isConfirmPasswordVisible;
                                 });
                               },
                             ),
@@ -424,7 +419,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                         ),
                         const SizedBox(height: 12),
-                        
+
                         // Phone (Optional)
                         TextFormField(
                           controller: _phoneController,
@@ -444,7 +439,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                         ),
-                        
+
                         // Vendor Specific Fields
                         if (isVendor) ...[
                           const SizedBox(height: 16),
@@ -459,7 +454,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          
+
                           // Business Name
                           TextFormField(
                             controller: _businessNameController,
@@ -485,7 +480,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             },
                           ),
                           const SizedBox(height: 12),
-                          
+
                           // Business Phone
                           TextFormField(
                             controller: _businessPhoneController,
@@ -506,10 +501,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          
+
                           // Business Type
                           DropdownButtonFormField<String>(
-                            initialValue: _businessTypeController.text.isEmpty ? null : _businessTypeController.text,
+                            initialValue: _businessTypeController.text.isEmpty
+                                ? null
+                                : _businessTypeController.text,
                             decoration: InputDecoration(
                               labelText: 'Business Type',
                               prefixIcon: const Icon(Icons.category_outlined),
@@ -535,14 +532,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             },
                           ),
                           const SizedBox(height: 12),
-                          
+
                           // Business Address
                           TextFormField(
                             controller: _businessAddressController,
                             maxLines: 2,
                             decoration: InputDecoration(
                               labelText: 'Business Address (Optional)',
-                              prefixIcon: const Icon(Icons.location_on_outlined),
+                              prefixIcon:
+                                  const Icon(Icons.location_on_outlined),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -556,7 +554,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                         ],
-                        
+
                         if (authProvider.error != null) ...[
                           const SizedBox(height: 16),
                           Container(
@@ -567,7 +565,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.error_outline, color: Colors.red.shade700),
+                                Icon(Icons.error_outline,
+                                    color: Colors.red.shade700),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -582,9 +581,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                         ],
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // Terms and Conditions
                         Row(
                           children: [
@@ -606,7 +605,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 },
                                 child: RichText(
                                   text: const TextSpan(
-                                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                                    style: TextStyle(
+                                        color: Colors.grey, fontSize: 12),
                                     children: [
                                       TextSpan(text: 'I agree to the '),
                                       TextSpan(
@@ -631,14 +631,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 24),
-                        
+
                         // Register Button
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: authProvider.isLoading ? null : _handleRegister,
+                            onPressed:
+                                authProvider.isLoading ? null : _handleRegister,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: ColorPalette.primaryGreen,
                               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -668,9 +669,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
-                
+
                 // Login Link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
