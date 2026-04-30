@@ -48,6 +48,8 @@
 
 ## Step 5: ML Service
 - Deploy only if live AI dashboards are required now
+- Deploy the `Backend/ml_model_service` folder as the Railway ML service root
+- Use the service config in `Backend/ml_model_service/railway.json`
 - Then set:
   - `ML_SERVICE_URL=https://your-ml-service-url/api/ml`
 
