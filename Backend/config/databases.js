@@ -6,13 +6,44 @@ const { MongoClient } = require('mongodb');
 const SUPPORTED_NODE_MAJOR_MIN = 18;
 const SUPPORTED_NODE_MAJOR_MAX = 22;
 
+function getMysqlConfigFromUrl() {
+    const uri = process.env.MYSQL_URL || process.env.MYSQL_PUBLIC_URL || process.env.DATABASE_URL;
+    if (!uri || !uri.startsWith('mysql://')) {
+        return null;
+    }
+
+    try {
+        const url = new URL(uri);
+        return {
+            host: url.hostname,
+            port: Number(url.port || 3306),
+            user: decodeURIComponent(url.username),
+            password: decodeURIComponent(url.password),
+            database: url.pathname.replace(/^\//, '') || 'railway'
+        };
+    } catch (error) {
+        console.warn('Invalid MySQL connection URL, falling back to individual variables:', error.message);
+        return null;
+    }
+}
+
+function getMysqlConfig() {
+    const urlConfig = getMysqlConfigFromUrl();
+    if (urlConfig) return urlConfig;
+
+    return {
+        host: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
+        port: Number(process.env.DB_PORT || process.env.MYSQLPORT || 3306),
+        user: process.env.DB_USER || process.env.MYSQLUSER || 'root',
+        password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || '12345',
+        database: process.env.DB_NAME || process.env.MYSQLDATABASE || 'explore_lesotho'
+    };
+}
+
 // MYSQL CONNECTION POOL
+const mysqlConfig = getMysqlConfig();
 const mysqlPool = mysql.createPool({
-    host: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
-    port: Number(process.env.DB_PORT || process.env.MYSQLPORT || 3306),
-    user: process.env.DB_USER || process.env.MYSQLUSER || 'root',
-    password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || '12345',
-    database: process.env.DB_NAME || process.env.MYSQLDATABASE || 'explore_lesotho',
+    ...mysqlConfig,
     waitForConnections: true,
     connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
     queueLimit: 0,
