@@ -19,6 +19,7 @@ coverage/
 **/__pycache__/
 *.pyc
 Backend/tmp_mticc_import/
+_db_exports/
 _incoming_frontend3/
 _incoming_ml2/
 _incoming_src/
