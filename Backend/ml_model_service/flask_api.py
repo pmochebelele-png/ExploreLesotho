@@ -26,8 +26,8 @@ app = Flask(__name__)
 CORS(app)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ML_SERVICE_HOST = os.getenv("ML_SERVICE_HOST", "127.0.0.1")
-ML_SERVICE_PORT = int(os.getenv("ML_SERVICE_PORT", "5001"))
+ML_SERVICE_HOST = os.getenv("ML_SERVICE_HOST", "0.0.0.0")
+ML_SERVICE_PORT = int(os.getenv("PORT", os.getenv("ML_SERVICE_PORT", "5001")))
 
 startup_warnings = []
 
