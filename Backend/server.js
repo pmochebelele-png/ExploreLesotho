@@ -129,6 +129,8 @@ const bookingRoutes = require('./routes/bookings');
 const adminRoutes = require('./routes/admin');
 const chatRoutes = require('./routes/chat');
 const mlRoutes = require('./routes/ml');
+const paymentRoutes = require('./routes/payments');
+const travelRoutes = require('./routes/travel');
 
 app.use('/api/auth', authRoutes);
 app.use('/api', hybridRoutes);
@@ -136,6 +138,8 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/ml', mlRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/travel', travelRoutes);
 
 // ============================================
 // HEALTH CHECK

@@ -52,6 +52,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   final TextEditingController _pinController = TextEditingController();
   bool _agreeToTerms = false;
   bool _isProcessing = false;
+  // ignore: unused_field
   bool _showPinScreen = false;
 
   final List<Map<String, dynamic>> _paymentMethods = [
@@ -146,42 +147,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
         builder: (context, paymentProvider, child) {
           return Scaffold(
             appBar: AppBar(
-              title: Text(_showPinScreen ? locale.translate('Enter PIN', 'Kenya PIN') : locale.translate('Complete Payment', 'Qetella Tefo')),
+              title: Text(locale.translate('Complete Payment', 'Qetella Tefo')),
               backgroundColor: ColorPalette.primaryGreen,
               foregroundColor: Colors.white,
               elevation: 0,
-              leading: _showPinScreen
-                  ? IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () {
-                        setState(() {
-                          _showPinScreen = false;
-                          _pinController.clear();
-                        });
-                      },
-                    )
-                  : null,
               actions: [
-                if (!_showPinScreen)
-                  IconButton(
-                    icon: const Icon(Icons.history),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const PaymentHistoryScreen(),
-                        ),
-                      );
-                    },
-                    tooltip: locale.translate('Payment History', 'Nalane ea Tefo'),
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.history),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const PaymentHistoryScreen(),
+                      ),
+                    );
+                  },
+                  tooltip: locale.translate('Payment History', 'Nalane ea Tefo'),
+                ),
               ],
             ),
             body: _isProcessing || paymentProvider.isProcessing
                 ? _buildProcessingScreen(locale)
-                : _showPinScreen
-                    ? _buildPinScreen(locale)
-                    : _buildPaymentScreen(paymentProvider, locale),
+                : _buildPaymentScreen(paymentProvider, locale),
           );
         },
       ),
@@ -218,6 +205,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildPinScreen(LocaleProvider locale) {
     final isMpesa = _selectedMethod == PaymentMethod.mpesa;
     final providerName = isMpesa ? 'M-Pesa' : 'EcoCash';
@@ -552,7 +540,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Future<void> _processPayment(BuildContext context, PaymentProvider paymentProvider, LocaleProvider locale) async {
     if (_selectedMethod == null) return;
 
-    // For M-Pesa or EcoCash, show PIN screen
     if (_selectedMethod == PaymentMethod.mpesa || _selectedMethod == PaymentMethod.ecoCash) {
       if (_phoneController.text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -563,85 +550,90 @@ class _PaymentScreenState extends State<PaymentScreen> {
         );
         return;
       }
-      
-      // Show PIN screen
-      setState(() {
-        _showPinScreen = true;
-      });
-      return;
     }
-    
-    // For other payment methods, process directly
+
     setState(() {
       _isProcessing = true;
     });
-    
-    // Simulate payment processing with real-time feedback
-    await Future.delayed(const Duration(seconds: 2));
-    
+
+    final isEventTicket = widget.bookingId.startsWith('event-');
+    final bookingIntent = isEventTicket
+        ? null
+        : Provider.of<BookingProvider>(context, listen: false).bookingIntent;
+    final result = await paymentProvider.initiatePayment(
+      context: context,
+      amount: _total,
+      currency: widget.currency,
+      bookingId: widget.bookingId,
+      method: _selectedMethod!,
+      purpose: isEventTicket ? 'event_ticket' : 'booking',
+      relatedId: isEventTicket ? widget.bookingId.split('-')[1] : widget.bookingId,
+      serviceFee: _serviceFee,
+      paymentDetails: {
+        'phone': _phoneController.text.trim(),
+        'description': widget.bookingDetails?['listingTitle'] ?? 'Explore Lesotho payment',
+      },
+      metadata: isEventTicket
+          ? {
+              'eventId': int.tryParse(widget.bookingId.split('-')[1]),
+              'quantity': int.tryParse(widget.bookingId.split('-')[2]),
+            }
+          : {
+              'bookingIntentId': widget.bookingId,
+              'bookingIntent': bookingIntent ?? {},
+              'bookingDetails': widget.bookingDetails ?? {},
+            },
+    );
+
     setState(() {
       _isProcessing = false;
     });
-    
-    if (mounted) {
-      // Show success message based on payment method
-      String successMessage = '';
-      if (_selectedMethod == PaymentMethod.mpesa) {
-        successMessage = locale.translate('M-Pesa payment of M${_total.toStringAsFixed(2)} successful!', 'Tefo ea M-Pesa ea M${_total.toStringAsFixed(2)} e atlehile!');
-      } else if (_selectedMethod == PaymentMethod.ecoCash) {
-        successMessage = locale.translate('EcoCash payment of M${_total.toStringAsFixed(2)} successful!', 'Tefo ea EcoCash ea M${_total.toStringAsFixed(2)} e atlehile!');
-      } else {
-        successMessage = locale.translate('Payment of ${widget.currency} ${_total.toStringAsFixed(2)} successful!', 'Tefo ea ${widget.currency} ${_total.toStringAsFixed(2)} e atlehile!');
-      }
-      
+
+    if (!mounted || !context.mounted) return;
+
+    if (result['success'] != true) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(successMessage),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
+          content: Text(result['error']?.toString() ?? 'Payment provider is not configured'),
+          backgroundColor: Colors.red,
         ),
       );
-      
-      // Send payment success notification
+      return;
+    }
+
+    final reference = result['paymentReference']?.toString() ?? widget.bookingId;
+    final status = result['status']?.toString() ?? 'pending';
+    final message = result['customerMessage']?.toString() ??
+        'Payment request sent. Confirm it on your phone.';
+
+    if (status == 'paid') {
       await NotificationService().sendPaymentSuccessNotification(
         bookingTitle: widget.bookingDetails?['listingTitle'] ?? locale.translate('Booking', 'Phehelo'),
         amount: _total,
         currency: widget.currency,
       );
-      
-      final transactionId = transactionIdFromNow();
-      final result = await _confirmPaymentAction(transactionId);
-
-      if (!mounted) return;
-
-      if (result == null) {
-        final bookingProvider = Provider.of<BookingProvider>(context, listen: false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(bookingProvider.error ?? locale.translate('Failed to confirm booking', 'Ho hloleha ho netefatsa pehelo')),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PaymentSuccessScreen(
-            transactionId: transactionId,
-            amount: _total,
-            currency: widget.currency,
-            bookingId: result['recordId']?.toString() ?? widget.bookingId,
-            successTitle: widget.successTitle,
-            successMessage: widget.successMessage,
-            recordLabel: widget.successRecordLabel,
-            viewRoute: widget.successViewRoute,
-            viewButtonText: widget.successViewButtonText,
-          ),
-        ),
-      );
     }
+
+    if (!mounted || !context.mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PaymentSuccessScreen(
+          transactionId: reference,
+          amount: _total,
+          currency: widget.currency,
+          bookingId: widget.bookingId,
+          successTitle: status == 'paid' ? widget.successTitle : 'Payment Request Sent',
+          successMessage: status == 'paid'
+              ? widget.successMessage
+              : '$message Your booking or ticket will confirm after the provider sends payment confirmation.',
+          recordLabel: 'Payment Reference',
+          viewRoute: widget.successViewRoute,
+          viewButtonText: widget.successViewButtonText,
+        ),
+      ),
+    );
   }
 
   Future<void> _verifyPin() async {
