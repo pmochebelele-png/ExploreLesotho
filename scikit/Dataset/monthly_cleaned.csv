@@ -1,0 +1,13 @@
+month,month_name,arrivals,revenue,season,quarter,is_peak
+1,Jan,55622,8.6,Summer,Q1,False
+2,Feb,47710,7.6,Summer,Q1,False
+3,Mar,60035,7.6,Autumn,Q1,True
+4,Apr,70793,7.9,Autumn,Q2,True
+5,May,53753,9.4,Autumn,Q2,False
+6,Jun,55297,8.4,Winter,Q2,False
+7,Jul,57651,8.0,Winter,Q3,False
+8,Aug,58663,8.0,Winter,Q3,True
+9,Sep,56348,7.7,Spring,Q3,False
+10,Oct,59626,7.6,Spring,Q4,True
+11,Nov,58643,16.6,Spring,Q4,True
+12,Dec,99553,7.6,Summer,Q4,True

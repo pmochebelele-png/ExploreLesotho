@@ -1,6 +1,0 @@
-vendor_id,business_name,business_type,district,has_license,license_valid,tax_clearance,previous_experience_years,rating,approved_by_admin,registration_date
-V001,Maliba Lodge,accommodation,Butha-Buthe,1,1,1,5,4.8,1,2024-01-15
-V002,Pony Trekking,tour_operator,Mafeteng,1,1,1,3,4.5,1,2024-02-20
-V003,Mountain Tours,tour_operator,Maseru,1,0,1,2,3.2,0,2024-03-10
-V004,Sani Pass Tours,tour_operator,Qacha's Nek,1,1,1,7,4.9,1,2024-01-05
-V005,Craft Market,craft_shop,Maseru,0,0,0,1,0.0,0,2024-04-01

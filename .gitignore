@@ -5,6 +5,7 @@ frontend/.env
 **/.env.production
 **/.env.development
 .idea/
+.vscode/
 node_modules/
 build/
 .dart_tool/
@@ -26,3 +27,4 @@ _incoming_src/
 _tmp_ml_model/
 _tmp_mticc/
 _tmp_scikit/
+Backend/ml_model_service/

@@ -1,6 +1,0 @@
-booking_id,listing_id,vendor_id,check_in_date,check_out_date,guests,total_price,status,created_date
-B001,L001,V001,2024-06-01,2024-06-03,2,3700,completed,2024-05-15
-B002,L002,V002,2024-06-05,2024-06-06,1,650,completed,2024-05-20
-B003,L001,V001,2024-06-10,2024-06-12,3,5550,confirmed,2024-05-25
-B004,L003,V003,2024-06-15,2024-06-16,2,1200,pending,2024-06-01
-B005,L001,V001,2024-06-20,2024-06-22,2,3700,completed,2024-06-05
