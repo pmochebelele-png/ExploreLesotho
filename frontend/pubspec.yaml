@@ -81,5 +81,6 @@ flutter:
   
   assets:
     - assets/images/
+    - assets/images/tourism_seed/
     - assets/icons/
     - assets/sounds/

@@ -223,6 +223,144 @@ class ExploreLesothoScikitModel:
             "fastest_growing": high_growth[["country", "growth_pct"]].to_dict(orient="records"),
         }
 
+    def chart_data(self):
+        monthly_rows = self.monthly.sort_values("month")
+        attractions = self.attractions.sort_values("visitors", ascending=False)
+        origin = self.origin.sort_values("arrivals_2024", ascending=False).head(6)
+        sentiment_rows = self.features_sentiment.sort_values("sentiment_score", ascending=False)
+        pricing_rows = self.pricing()
+        forecast_rows = self.forecast(180)
+
+        return {
+            "arrivals_line": [
+                {
+                    "label": row["month_name"],
+                    "month": int(float(row["month"])),
+                    "value": int(float(row["arrivals"])),
+                    "season": row["season"],
+                }
+                for _, row in monthly_rows.iterrows()
+            ],
+            "forecast_line": [
+                {
+                    "label": row["date"],
+                    "month": row["month"],
+                    "value": row["predicted_visitors"],
+                    "bookings": row["bookings"],
+                }
+                for row in forecast_rows[:: max(1, len(forecast_rows) // 12)]
+            ][:12],
+            "attractions_bar": [
+                {
+                    "label": row["attraction"],
+                    "value": int(float(row["visitors"])),
+                    "domestic_pct": float(row["domestic_pct"]),
+                    "international_pct": float(row["international_pct"]),
+                }
+                for _, row in attractions.head(6).iterrows()
+            ],
+            "source_market_pie": [
+                {
+                    "label": row["country"],
+                    "value": round(float(row["market_share"]), 2),
+                    "arrivals": int(float(row["arrivals_2024"])),
+                    "growth": round(float(row["growth_pct"]), 1),
+                }
+                for _, row in origin.iterrows()
+            ],
+            "sentiment_pie": [
+                {
+                    "label": row["category"],
+                    "value": round(float(row["sentiment_score"]), 2),
+                }
+                for _, row in sentiment_rows.iterrows()
+            ],
+            "pricing_line": [
+                {
+                    "label": row["month"],
+                    "value": float(row["predicted_price"]),
+                    "demand_multiplier": row["demand_multiplier"],
+                }
+                for row in pricing_rows
+            ],
+        }
+
+    def answer_question(self, query):
+        query = (query or "").strip()
+        if not query:
+            return {
+                "answer": "Ask a question about arrivals, forecasts, attractions, reviews, pricing, or source markets.",
+                "recommendations": [],
+                "evidence": [],
+            }
+
+        lower = query.lower()
+        evidence = self.knowledge(query, 4)
+        insights = self.insights()
+        recommendations = []
+
+        if any(word in lower for word in ["future", "forecast", "predict", "next", "visitors", "arrival"]):
+            forecast = self.forecast(180)
+            peak = max(forecast, key=lambda item: item["predicted_visitors"])
+            answer = (
+                f"The Scikit model predicts strongest upcoming demand around {peak['date']} "
+                f"({peak['month']}) with about {peak['predicted_visitors']:,} visitors. "
+                "Plan staffing, ticket capacity, transport, and accommodation promotions around that demand window."
+            )
+            recommendations = [
+                "Increase availability for accommodation and tours during the predicted peak month.",
+                "Promote bundles that combine accommodation, cultural tours, and adventure activities.",
+            ]
+        elif any(word in lower for word in ["price", "pricing", "cost", "charge"]):
+            pricing = self.pricing()
+            peak_price = max(pricing, key=lambda item: item["predicted_price"])
+            answer = (
+                f"Pricing can rise most safely in {peak_price['month']} when demand is strongest. "
+                f"The model estimates a seasonal price near M{int(peak_price['predicted_price']):,} "
+                f"from the selected base price."
+            )
+            recommendations = [
+                "Use transparent seasonal pricing and show tourists the reason for peak pricing.",
+                "Offer off-season discounts to improve occupancy in weaker months.",
+            ]
+        elif any(word in lower for word in ["review", "sentiment", "complain", "love", "visitor"]):
+            sentiment = self.sentiment()
+            answer = (
+                f"Visitor sentiment is mostly positive: {sentiment['positive_percentage']}% positive signals "
+                f"and {sentiment['negative_percentage']}% negative signals. Service quality is the strongest positive theme."
+            )
+            recommendations = [
+                "Promote good service and friendly host experiences in listings.",
+                "Improve signage and visitor guidance where negative signals appear.",
+            ]
+        elif any(word in lower for word in ["market", "country", "south africa", "germany", "egypt", "origin"]):
+            origin = self.origin_analysis()
+            top = origin["top_markets"][0]
+            answer = (
+                f"{top['country']} is the leading source market with {top['market_share']}% share "
+                f"and {top['arrivals']:,} arrivals. Fast-growth markets should be watched for targeted campaigns."
+            )
+            recommendations = [
+                "Prioritize South Africa for volume, then target fast-growth international markets.",
+                "Localize tour plans by visitor origin and expected spending style.",
+            ]
+        else:
+            best = insights[0]
+            answer = (
+                f"The strongest signal is: {best['title']}. {best['description']} "
+                "The model recommends using this insight to plan tourism capacity, promotions, and vendor readiness."
+            )
+            recommendations = [
+                item["title"] for item in insights[:3]
+            ]
+
+        return {
+            "answer": answer,
+            "recommendations": recommendations,
+            "evidence": evidence,
+            "charts": self.chart_data(),
+        }
+
     def insights(self):
         monthly_top = self.monthly.sort_values("arrivals", ascending=False).iloc[0]
         attraction_top = self.attractions.sort_values("visitors", ascending=False).iloc[0]
@@ -345,6 +483,7 @@ def dashboard():
         dashboard={
             "overview": model.overview(),
             "insights": model.insights(),
+            "charts": model.chart_data(),
             "legacy_intelligence": {
                 "peak_month": {
                     "month": monthly_top["month_name"],
@@ -500,6 +639,26 @@ def ltdc_knowledge():
     if not query:
         return jsonify({"success": False, "error": "query is required"}), 400
     return ok(query=query, matches=model.knowledge(query, int(payload.get("top_k", 5))))
+
+
+@app.route("/charts")
+@app.route("/api/charts")
+@app.route("/api/ml/charts")
+def charts():
+    return ok(charts=model.chart_data())
+
+
+@app.route("/ask", methods=["POST"])
+@app.route("/api/ask", methods=["POST"])
+@app.route("/api/ml/ask", methods=["POST"])
+@app.route("/ltdc/ask", methods=["POST"])
+@app.route("/api/ml/ltdc/ask", methods=["POST"])
+def ask():
+    payload = request.json or {}
+    question = str(payload.get("question") or payload.get("query") or "").strip()
+    if not question:
+        return jsonify({"success": False, "error": "question is required"}), 400
+    return ok(question=question, result=model.answer_question(question))
 
 
 @app.route("/ltdc/trends")

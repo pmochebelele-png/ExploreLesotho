@@ -9,6 +9,8 @@ class ExploreLesothoLogo extends StatelessWidget {
     this.showShadow = true,
   });
 
+  static const String assetPath = 'assets/images/explore_lesotho_logo.jpeg';
+
   final double size;
   final bool showShadow;
 
@@ -18,8 +20,8 @@ class ExploreLesothoLogo extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
         color: Colors.white,
+        borderRadius: BorderRadius.circular(size * 0.2),
         boxShadow: showShadow
             ? [
                 BoxShadow(
@@ -30,8 +32,18 @@ class ExploreLesothoLogo extends StatelessWidget {
               ]
             : null,
       ),
-      child: CustomPaint(
-        painter: _ExploreLesothoLogoPainter(),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: EdgeInsets.all(size * 0.06),
+        child: Image.asset(
+          assetPath,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) {
+            return CustomPaint(
+              painter: _ExploreLesothoLogoPainter(),
+            );
+          },
+        ),
       ),
     );
   }

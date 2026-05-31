@@ -3,8 +3,8 @@
     <application
         android:label="Explore Lesotho"
         android:name="${applicationName}"
-        android:icon="@drawable/explore_lesotho_launcher"
-        android:roundIcon="@drawable/explore_lesotho_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -1096,6 +1096,16 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
   }
 
   Widget _buildListingImage(String imageUrl) {
+    if (imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        imageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Center(
+          child: Icon(Icons.image, size: 64, color: Colors.white),
+        ),
+      );
+    }
+
     if (imageUrl.startsWith('data:image')) {
       final parts = imageUrl.split(',');
       if (parts.length == 2) {

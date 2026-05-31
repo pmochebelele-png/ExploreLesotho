@@ -235,6 +235,14 @@ class ListingCard extends StatelessWidget {
 
   Widget _buildListingImage(Color categoryColor) {
     final imageUrl = listing.imageUrl!;
+    if (imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        imageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _buildPlaceholderIcon(categoryColor),
+      );
+    }
+
     if (imageUrl.startsWith('data:image')) {
       final parts = imageUrl.split(',');
       if (parts.length == 2) {

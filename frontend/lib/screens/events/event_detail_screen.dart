@@ -6,9 +6,9 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/event.dart';
-import '../../models/payment.dart';
 import '../../core/themes/color_palette.dart';
 import '../../providers/event_provider.dart';
+import '../../utils/input_rules.dart';
 import '../../widgets/social_media_buttons.dart';
 import '../payments/payment_screen.dart';
 
@@ -131,6 +131,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               TextField(
                 controller: controller,
                 keyboardType: TextInputType.number,
+                inputFormatters: InputRules.digits,
                 decoration: const InputDecoration(
                   labelText: 'How many tickets?',
                   border: OutlineInputBorder(),

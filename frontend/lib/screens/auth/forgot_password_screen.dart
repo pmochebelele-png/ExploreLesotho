@@ -120,7 +120,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     Text(
                       _requestSubmitted
                           ? 'Enter the reset code and choose a new password.'
-                          : 'Enter your account email to generate a reset code.',
+                          : 'Enter your account email to receive a reset code.',
                       style: TextStyle(color: Colors.grey[700]),
                     ),
                     const SizedBox(height: 24),

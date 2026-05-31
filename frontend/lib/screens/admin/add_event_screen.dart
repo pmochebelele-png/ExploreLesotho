@@ -4,6 +4,7 @@ import '../../models/event.dart';
 import '../../providers/event_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/themes/color_palette.dart';
+import '../../utils/input_rules.dart';
 
 class AddEventScreen extends StatefulWidget {
   final Event? existingEvent;
@@ -310,9 +311,10 @@ class _AddEventScreenState extends State<AddEventScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
+                  TextFormField(
+                    controller: _titleController,
+                    inputFormatters: InputRules.businessName,
+                    decoration: const InputDecoration(
                         labelText: 'Event Title *',
                         hintText: 'e.g., Maletsunyane Braai Festival',
                         border: OutlineInputBorder(),
@@ -339,9 +341,10 @@ class _AddEventScreenState extends State<AddEventScreen> {
                               : null,
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _locationController,
-                      decoration: const InputDecoration(
+                  TextFormField(
+                    controller: _locationController,
+                    inputFormatters: InputRules.address,
+                    decoration: const InputDecoration(
                         labelText: 'Location / Venue *',
                         hintText: 'e.g., Thaba Bosiu, Maseru',
                         border: OutlineInputBorder(),
@@ -425,10 +428,11 @@ class _AddEventScreenState extends State<AddEventScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _priceController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
+                  TextFormField(
+                    controller: _priceController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: InputRules.decimal,
+                    decoration: const InputDecoration(
                         labelText: 'Price (M)',
                         hintText: '0 for free events',
                         border: OutlineInputBorder(),
@@ -437,10 +441,11 @@ class _AddEventScreenState extends State<AddEventScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _maxCapacityController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
+                  TextFormField(
+                    controller: _maxCapacityController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: InputRules.digits,
+                    decoration: const InputDecoration(
                         labelText: 'Total Tickets Available (optional)',
                         hintText: 'e.g., 100',
                         border: OutlineInputBorder(),
@@ -450,9 +455,10 @@ class _AddEventScreenState extends State<AddEventScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _organizerNameController,
-                      decoration: const InputDecoration(
+                  TextFormField(
+                    controller: _organizerNameController,
+                    inputFormatters: InputRules.businessName,
+                    decoration: const InputDecoration(
                         labelText: 'Organizer Name (optional)',
                         hintText: 'e.g., Lesotho Adventure Guild',
                         border: OutlineInputBorder(),
@@ -460,10 +466,11 @@ class _AddEventScreenState extends State<AddEventScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _organizerEmailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
+                  TextFormField(
+                    controller: _organizerEmailController,
+                    keyboardType: TextInputType.emailAddress,
+                    inputFormatters: InputRules.email,
+                    decoration: const InputDecoration(
                         labelText: 'Organizer Email (optional)',
                         hintText: 'events@example.com',
                         border: OutlineInputBorder(),
@@ -471,10 +478,11 @@ class _AddEventScreenState extends State<AddEventScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _organizerPhoneController,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
+                  TextFormField(
+                    controller: _organizerPhoneController,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: InputRules.phone,
+                    decoration: const InputDecoration(
                         labelText: 'Organizer Phone (optional)',
                         hintText: '+266 5xxx xxxx',
                         border: OutlineInputBorder(),

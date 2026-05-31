@@ -12,6 +12,7 @@ import '../../providers/test_chat_provider.dart';
 import '../../core/themes/color_palette.dart';
 import '../../services/api_service.dart';
 import '../../services/ml_service.dart';
+import '../../utils/vendor_facility.dart';
 import '../../widgets/social_media_buttons.dart';
 import '../../widgets/mountain_background.dart';
 import '../auth/login_screen.dart';
@@ -34,6 +35,7 @@ class VendorDashboard extends StatefulWidget {
 class _VendorDashboardState extends State<VendorDashboard>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final ScrollController _overviewScrollController = ScrollController();
   final ApiService _apiService = ApiService();
   final MlService _mlService = MlService();
   CultureVendor? _claimedCultureVendor;
@@ -68,6 +70,7 @@ class _VendorDashboardState extends State<VendorDashboard>
   @override
   void dispose() {
     _tabController.dispose();
+    _overviewScrollController.dispose();
     super.dispose();
   }
 
@@ -121,6 +124,8 @@ class _VendorDashboardState extends State<VendorDashboard>
         .fold(0.0, (sum, b) => sum + b.grandTotal);
     final primaryListing =
         vendorListings.isNotEmpty ? vendorListings.first : null;
+    final facility =
+        VendorFacilityTaxonomy.facilityForBusinessType(authProvider.user?.businessType);
 
     return MountainBackground(
       overlayOpacity: 0.25,
@@ -278,7 +283,7 @@ class _VendorDashboardState extends State<VendorDashboard>
               ),
               Tab(
                 icon: const Icon(Icons.list),
-                text: locale.translate('Listings', 'Manane'),
+                text: facility.label,
               ),
               Tab(
                 icon: const Icon(Icons.book_online),
@@ -317,7 +322,7 @@ class _VendorDashboardState extends State<VendorDashboard>
                 chatProvider,
                 vendorListings,
                 primaryListing),
-            const VendorListingsScreen(),
+            VendorListingsScreen(initialCategory: facility.listingCategory),
             VendorBookingsScreen(vendorBookings: vendorBookings),
             VendorAnalyticsScreen(
                 vendorBookings: vendorBookings, vendorListings: vendorListings),
@@ -740,9 +745,14 @@ class _VendorDashboardState extends State<VendorDashboard>
       dynamic primaryListing) {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
+    return Scrollbar(
+      controller: _overviewScrollController,
+      thumbVisibility: true,
+      trackVisibility: true,
+      child: SingleChildScrollView(
+        controller: _overviewScrollController,
+        padding: const EdgeInsets.all(16),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Welcome Card
@@ -798,7 +808,7 @@ class _VendorDashboardState extends State<VendorDashboard>
           // Stats Grid
           Text(
             locale.translate('Quick Stats', 'Lipalopalo'),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: _brightHeadingStyle(18),
           ),
           const SizedBox(height: 16),
 
@@ -895,7 +905,7 @@ class _VendorDashboardState extends State<VendorDashboard>
           // Quick Actions
           Text(
             locale.translate('Quick Actions', 'Liketso tse Potlakileng'),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: _brightHeadingStyle(18),
           ),
           const SizedBox(height: 16),
           Row(
@@ -1146,7 +1156,8 @@ class _VendorDashboardState extends State<VendorDashboard>
             }),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildAiVendorPanel(LocaleProvider locale) {
@@ -1457,6 +1468,21 @@ class _VendorDashboardState extends State<VendorDashboard>
           ],
         ),
       ),
+    );
+  }
+
+  TextStyle _brightHeadingStyle(double fontSize) {
+    return TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.bold,
+      color: Colors.white,
+      shadows: const [
+        Shadow(
+          color: Colors.black54,
+          blurRadius: 8,
+          offset: Offset(0, 2),
+        ),
+      ],
     );
   }
 

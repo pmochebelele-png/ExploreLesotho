@@ -5,17 +5,35 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { mysqlPool, getMongoDb } = require('../config/databases');
+const {
+    sendEmail,
+    verificationEmail,
+    passwordResetEmail,
+} = require('../utils/mailer');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
+const ML_SERVICE_BASE_URL = (
+    process.env.ML_SERVICE_URL ||
+    'http://127.0.0.1:5001/api/ml'
+).replace(/\/+$/, '');
 
 // Helper to generate token
 const generateToken = (userId, email, role) => {
     return jwt.sign({ id: userId, email, role }, JWT_SECRET, { expiresIn: '7d' });
 };
 
-const generateResetToken = () => crypto.randomBytes(32).toString('hex');
+const generateVerificationCode = () =>
+    crypto.randomInt(100000, 1000000).toString();
 const hashResetToken = (token) =>
     crypto.createHash('sha256').update(token).digest('hex');
+
+const toBoolean = (value) =>
+    value === true || value === 1 || value === '1' || value === 'true' || value === 'yes';
+
+const toNumber = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
 
 const normalizeName = (value) =>
     (value ?? '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
@@ -86,6 +104,75 @@ async function linkCultureVendorToRegisteredVendor(connection, vendorRecord) {
     return cultureVendorId;
 }
 
+async function runVendorMlVerification(vendorPayload) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    try {
+        const response = await fetch(`${ML_SERVICE_BASE_URL}/register_vendor`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+            body: JSON.stringify(vendorPayload),
+            signal: controller.signal,
+        });
+
+        const text = await response.text();
+        const payload = text ? JSON.parse(text) : {};
+        if (!response.ok || payload.success === false) {
+            throw new Error(payload.error || payload.message || 'ML verifier rejected the request');
+        }
+
+        return payload.result?.decision || payload.decision || null;
+    } catch (error) {
+        console.warn('Vendor ML verification unavailable:', error.message);
+        return null;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+async function sendAccountVerification({ db, email, name, role, userId }) {
+    const code = generateVerificationCode();
+    const hashedCode = hashResetToken(code);
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    const emailContent = verificationEmail({ name, code });
+
+    const sent = await sendEmail({
+        to: email,
+        subject: emailContent.subject,
+        text: emailContent.text,
+        html: emailContent.html,
+    });
+
+    if (!sent) return false;
+
+    await db.collection('users').updateOne(
+        { email },
+        {
+            $set: {
+                user_id: userId,
+                email,
+                name,
+                role,
+                emailVerified: false,
+                emailVerificationRequired: true,
+                emailVerificationToken: hashedCode,
+                emailVerificationExpiresAt: expiresAt,
+                updatedAt: new Date(),
+            },
+            $setOnInsert: {
+                createdAt: new Date(),
+            },
+        },
+        { upsert: true }
+    );
+
+    return true;
+}
+
 // ============================================
 // REGISTER TOURIST
 // ============================================
@@ -124,6 +211,8 @@ router.post('/register', async (req, res) => {
             
             // Insert into MongoDB
             const db = getMongoDb();
+            let emailVerificationSent = false;
+            if (db) {
             await db.collection('users').insertOne({
                 user_id: userId,
                 email: email,
@@ -131,10 +220,20 @@ router.post('/register', async (req, res) => {
                 password: hashedPassword,
                 role: 'tourist',
                 phone: phone,
+                emailVerified: false,
+                emailVerificationRequired: false,
                 createdAt: new Date(),
                 updatedAt: new Date()
             });
             console.log('✅ Tourist inserted into MongoDB');
+            emailVerificationSent = await sendAccountVerification({
+                db,
+                email,
+                name,
+                role: 'tourist',
+                userId,
+            });
+            }
             
             await connection.commit();
             
@@ -143,7 +242,9 @@ router.post('/register', async (req, res) => {
             
             res.json({
                 success: true,
-                message: 'Registration successful',
+                message: emailVerificationSent
+                    ? 'Registration successful. Check your email for a verification code.'
+                    : 'Registration successful',
                 token: token,
                 user: {
                     user_id: userId,
@@ -151,7 +252,8 @@ router.post('/register', async (req, res) => {
                     name: name,
                     email: email,
                     role: 'tourist',
-                    phone: phone
+                    phone: phone,
+                    emailVerificationSent,
                 }
             });
         } catch (error) {
@@ -170,7 +272,22 @@ router.post('/register', async (req, res) => {
 // REGISTER VENDOR
 // ============================================
 router.post('/register-vendor', async (req, res) => {
-    const { full_name, email, password, business_name, business_phone, business_address, business_type, phone } = req.body;
+    const {
+        full_name,
+        email,
+        password,
+        business_name,
+        business_phone,
+        business_address,
+        business_type,
+        phone,
+        district,
+        has_license,
+        license_valid,
+        tax_clearance,
+        previous_experience,
+        rating,
+    } = req.body;
     
     console.log('📝 Registering vendor:', { full_name, email, business_name });
     
@@ -202,6 +319,24 @@ router.post('/register-vendor', async (req, res) => {
             const userId = result.insertId;
             console.log('✅ Vendor user inserted into MySQL, ID:', userId);
             
+            const vendorMlPayload = {
+                name: business_name,
+                owner_name: full_name,
+                email,
+                phone: business_phone || phone,
+                business_type: business_type || 'Other',
+                district: district || business_address || 'Maseru',
+                has_license: toBoolean(has_license),
+                license_valid: toBoolean(license_valid),
+                tax_clearance: toBoolean(tax_clearance),
+                previous_experience: toNumber(previous_experience, 0),
+                rating: toNumber(rating, 3),
+            };
+            const mlDecision = await runVendorMlVerification(vendorMlPayload);
+            const autoApproved = mlDecision?.approved === true;
+            const initialVerified = autoApproved ? 1 : 0;
+            const initialStatus = autoApproved ? 'active' : 'pending';
+
             // Insert into MySQL vendors table
             const [vendorResult] = await connection.execute(
                 `INSERT INTO vendors (
@@ -214,8 +349,17 @@ router.post('/register-vendor', async (req, res) => {
                     verified, 
                     status, 
                     created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, 0, 'pending', NOW())`,
-                [userId, business_name, email, business_phone, business_type, business_address]
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+                [
+                    userId,
+                    business_name,
+                    email,
+                    business_phone,
+                    business_type,
+                    business_address,
+                    initialVerified,
+                    initialStatus,
+                ]
             );
             console.log('✅ Vendor record created (pending approval)');
 
@@ -228,6 +372,8 @@ router.post('/register-vendor', async (req, res) => {
             
             // Insert into MongoDB
             const db = getMongoDb();
+            let emailVerificationSent = false;
+            if (db) {
             await db.collection('users').insertOne({
                 user_id: userId,
                 email: email,
@@ -235,11 +381,25 @@ router.post('/register-vendor', async (req, res) => {
                 password: hashedPassword,
                 role: 'vendor',
                 businessName: business_name,
+                businessType: business_type,
+                businessAddress: business_address,
+                district,
+                mlVerification: mlDecision,
                 phone: phone,
+                emailVerified: false,
+                emailVerificationRequired: false,
                 createdAt: new Date(),
                 updatedAt: new Date()
             });
             console.log('✅ Vendor inserted into MongoDB');
+            emailVerificationSent = await sendAccountVerification({
+                db,
+                email,
+                name: full_name,
+                role: 'vendor',
+                userId,
+            });
+            }
             
             await connection.commit();
             
@@ -248,7 +408,13 @@ router.post('/register-vendor', async (req, res) => {
             
             res.json({
                 success: true,
-                message: 'Vendor registration successful. Your account is pending approval.',
+                message: autoApproved
+                    ? emailVerificationSent
+                        ? 'Vendor registration successful. Your account was automatically approved. Check your email for a verification code.'
+                        : 'Vendor registration successful. Your account was automatically approved.'
+                    : emailVerificationSent
+                        ? 'Vendor registration successful. Your account is pending approval. Check your email for a verification code.'
+                        : 'Vendor registration successful. Your account is pending approval.',
                 token: token,
                 user: {
                     user_id: userId,
@@ -257,8 +423,11 @@ router.post('/register-vendor', async (req, res) => {
                     email: email,
                     role: 'vendor',
                     businessName: business_name,
-                    verified: false,
+                    businessType: business_type,
+                    verified: autoApproved,
+                    emailVerificationSent,
                     linkedCultureVendorId: linkedCultureVendorId?.toString() ?? null,
+                    mlVerification: mlDecision,
                 }
             });
         } catch (error) {
@@ -270,6 +439,62 @@ router.post('/register-vendor', async (req, res) => {
     } catch (error) {
         console.error('❌ Error registering vendor:', error);
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ============================================
+// VERIFY EMAIL
+// ============================================
+router.post('/verify-email', async (req, res) => {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+        return res.status(400).json({
+            success: false,
+            message: 'Email and verification code are required'
+        });
+    }
+
+    try {
+        const db = getMongoDb();
+        const hashedCode = hashResetToken(code);
+        const result = await db.collection('users').findOneAndUpdate(
+            {
+                email,
+                emailVerificationToken: hashedCode,
+                emailVerificationExpiresAt: { $gt: new Date() }
+            },
+            {
+                $set: {
+                    emailVerified: true,
+                    emailVerificationRequired: false,
+                    updatedAt: new Date()
+                },
+                $unset: {
+                    emailVerificationToken: '',
+                    emailVerificationExpiresAt: ''
+                }
+            },
+            { returnOriginal: false }
+        );
+
+        if (!result.value) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid or expired verification code'
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: 'Email verified successfully'
+        });
+    } catch (error) {
+        console.error('❌ Error verifying email:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to verify email'
+        });
     }
 });
 
@@ -300,17 +525,30 @@ router.post('/login', async (req, res) => {
         if (!isValidPassword) {
             return res.status(401).json({ success: false, message: 'Invalid email or password' });
         }
+
+        const db = getMongoDb();
+        if (db) {
+            const mongoUser = await db.collection('users').findOne({ email: user.email });
+            if (mongoUser?.emailVerificationRequired === true && mongoUser.emailVerified !== true) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Please verify your email before logging in.'
+                });
+            }
+        }
         
         // Check vendor approval if role is vendor
         let businessName = null;
+        let businessType = null;
         let verified = true;
         if (user.role === 'vendor') {
             const [vendors] = await mysqlPool.execute(
-                'SELECT business_name, verified FROM vendors WHERE user_id = ?',
+                'SELECT business_name, business_type, verified FROM vendors WHERE user_id = ?',
                 [user.user_id]
             );
             if (vendors.length > 0) {
                 businessName = vendors[0].business_name;
+                businessType = vendors[0].business_type;
                 verified = vendors[0].verified === 1;
                 if (!verified) {
                     return res.status(403).json({ 
@@ -335,6 +573,7 @@ router.post('/login', async (req, res) => {
                 email: user.email,
                 role: user.role,
                 businessName: businessName,
+                businessType: businessType,
                 verified: verified
             }
         });
@@ -373,7 +612,7 @@ router.post('/forgot-password', async (req, res) => {
 
         const user = users[0];
         const db = getMongoDb();
-        const resetToken = generateResetToken();
+        const resetToken = generateVerificationCode();
         const hashedResetToken = hashResetToken(resetToken);
         const resetExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
@@ -396,11 +635,26 @@ router.post('/forgot-password', async (req, res) => {
             { upsert: true }
         );
 
-        console.log(`🔐 Password reset token for ${user.email}: ${resetToken}`);
+        const emailContent = passwordResetEmail({
+            name: user.full_name,
+            code: resetToken,
+        });
+        const emailSent = await sendEmail({
+            to: user.email,
+            subject: emailContent.subject,
+            text: emailContent.text,
+            html: emailContent.html,
+        });
+
+        if (!emailSent || process.env.NODE_ENV !== 'production') {
+            console.log(`🔐 Password reset code for ${user.email}: ${resetToken}`);
+        }
 
         return res.json({
             success: true,
-            message: 'If an account with that email exists, a reset code has been generated.',
+            message: emailSent
+                ? 'If an account with that email exists, a reset code has been sent.'
+                : 'If an account with that email exists, a reset code has been generated.',
             resetToken: process.env.NODE_ENV === 'production' ? undefined : resetToken
         });
     } catch (error) {

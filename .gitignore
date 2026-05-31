@@ -27,4 +27,5 @@ _incoming_src/
 _tmp_ml_model/
 _tmp_mticc/
 _tmp_scikit/
+_tmp_project_listing_images/
 Backend/ml_model_service/

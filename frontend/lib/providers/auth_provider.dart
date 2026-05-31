@@ -119,6 +119,12 @@ class AuthProvider extends ChangeNotifier {
     String? businessPhone,
     String? businessAddress,
     String? businessType,
+    String? district,
+    bool hasLicense = false,
+    bool licenseValid = false,
+    bool taxClearance = false,
+    int previousExperience = 0,
+    double rating = 3,
   }) async {
     _isLoading = true;
     _error = null;
@@ -133,6 +139,12 @@ class AuthProvider extends ChangeNotifier {
       businessPhone: businessPhone,
       businessAddress: businessAddress,
       businessType: businessType,
+      district: district,
+      hasLicense: hasLicense,
+      licenseValid: licenseValid,
+      taxClearance: taxClearance,
+      previousExperience: previousExperience,
+      rating: rating,
     );
 
     _isLoading = false;
@@ -245,6 +257,31 @@ class AuthProvider extends ChangeNotifier {
       return true;
     } else {
       _error = result['message'] ?? 'Failed to reset password';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    final result = await _authService.verifyEmail(
+      email: email,
+      code: code,
+    );
+
+    _isLoading = false;
+
+    if (result['success'] == true) {
+      notifyListeners();
+      return true;
+    } else {
+      _error = result['message'] ?? 'Failed to verify email';
       notifyListeners();
       return false;
     }

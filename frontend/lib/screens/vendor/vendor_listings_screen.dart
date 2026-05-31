@@ -69,7 +69,12 @@ class _ListingMediaItem {
 }
 
 class VendorListingsScreen extends StatefulWidget {
-  const VendorListingsScreen({super.key});
+  final String initialCategory;
+
+  const VendorListingsScreen({
+    super.key,
+    this.initialCategory = 'Accommodation',
+  });
 
   @override
   State<VendorListingsScreen> createState() => _VendorListingsScreenState();
@@ -299,6 +304,16 @@ class _VendorListingsScreenState extends State<VendorListingsScreen> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    final category = _categoryConfigs.containsKey(widget.initialCategory)
+        ? widget.initialCategory
+        : 'Accommodation';
+    _selectedCategory = category;
+    _selectedPriceUnit = _categoryConfigs[category]!.priceUnit;
+  }
+
+  @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
@@ -347,8 +362,11 @@ class _VendorListingsScreenState extends State<VendorListingsScreen> {
     _longitudeController.clear();
     _videoLinksController.clear();
     _clearDetailControllers();
-    _selectedCategory = 'Accommodation';
-    _selectedPriceUnit = _categoryConfigs['Accommodation']!.priceUnit;
+    final category = _categoryConfigs.containsKey(widget.initialCategory)
+        ? widget.initialCategory
+        : 'Accommodation';
+    _selectedCategory = category;
+    _selectedPriceUnit = _categoryConfigs[category]!.priceUnit;
     _isEditing = false;
     _editingId = null;
     _mediaItems = [];
@@ -1115,7 +1133,8 @@ class _VendorListingsScreenState extends State<VendorListingsScreen> {
                               Expanded(
                                 child: TextField(
                                   controller: _latitudeController,
-                                  keyboardType: const TextInputType.numberWithOptions(
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
                                     decimal: true,
                                     signed: true,
                                   ),
@@ -1130,7 +1149,8 @@ class _VendorListingsScreenState extends State<VendorListingsScreen> {
                               Expanded(
                                 child: TextField(
                                   controller: _longitudeController,
-                                  keyboardType: const TextInputType.numberWithOptions(
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
                                     decimal: true,
                                     signed: true,
                                   ),
@@ -1444,6 +1464,18 @@ class _VendorListingsScreenState extends State<VendorListingsScreen> {
   }
 
   Widget _buildPreviewImage(String image) {
+    if (image.startsWith('assets/')) {
+      return Image.asset(
+        image,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          color: Colors.grey[200],
+          alignment: Alignment.center,
+          child: const Icon(Icons.image_not_supported),
+        ),
+      );
+    }
+
     if (image.startsWith('data:image')) {
       final parts = image.split(',');
       if (parts.length == 2) {

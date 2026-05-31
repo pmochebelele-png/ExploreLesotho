@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/themes/color_palette.dart';
@@ -36,11 +38,14 @@ class TouristDashboard extends StatefulWidget {
 class _TouristDashboardState extends State<TouristDashboard> {
   int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _dashboardScrollController = ScrollController();
   final MlService _mlService = MlService();
   Map<String, dynamic>? _aiDashboard;
   List<Map<String, dynamic>> _aiRecommendations = [];
   List<Map<String, dynamic>> _aiHotspots = [];
   bool _aiLoading = false;
+  bool _showLegacyAiSections = false;
+  Timer? _searchDebounce;
 
   final List<String> _categories = [
     'All',
@@ -49,6 +54,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
     'Experience',
     'Culture',
     'Adventure',
+    'Food',
+    'Transport',
     'Upcoming Events',
   ];
   VoidCallback? _connectivityListener;
@@ -61,10 +68,19 @@ class _TouristDashboardState extends State<TouristDashboard> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<ListingProvider>(context, listen: false).loadListings();
       Provider.of<CultureProvider>(context, listen: false).loadInitial();
-      Provider.of<BookingProvider>(context, listen: false).refresh();
       Provider.of<EventProvider>(context, listen: false).fetchUpcomingEvents();
-      Provider.of<TestChatProvider>(context, listen: false).loadConversations();
-      _loadAiContent();
+
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (!mounted) return;
+        Provider.of<BookingProvider>(context, listen: false).refresh();
+        _loadAiContent();
+      });
+
+      Future.delayed(const Duration(milliseconds: 900), () {
+        if (!mounted) return;
+        Provider.of<TestChatProvider>(context, listen: false)
+            .loadConversations();
+      });
     });
 
     final connectivity = context.read<ConnectivityService>();
@@ -80,7 +96,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
+    _searchDebounce?.cancel();
     _searchController.dispose();
+    _dashboardScrollController.dispose();
     final listener = _connectivityListener;
     if (listener != null) {
       context.read<ConnectivityService>().removeListener(listener);
@@ -89,14 +107,18 @@ class _TouristDashboardState extends State<TouristDashboard> {
   }
 
   void _onSearchChanged() {
-    final listingProvider =
-        Provider.of<ListingProvider>(context, listen: false);
-    final cultureProvider =
-        Provider.of<CultureProvider>(context, listen: false);
-    listingProvider.search(_searchController.text);
-    if (listingProvider.selectedCategory == 'Culture') {
-      cultureProvider.loadVendors(search: _searchController.text);
-    }
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 260), () {
+      if (!mounted) return;
+      final listingProvider =
+          Provider.of<ListingProvider>(context, listen: false);
+      final cultureProvider =
+          Provider.of<CultureProvider>(context, listen: false);
+      listingProvider.search(_searchController.text);
+      if (listingProvider.selectedCategory == 'Culture') {
+        cultureProvider.loadVendors(search: _searchController.text);
+      }
+    });
   }
 
   Future<void> _loadAiContent() async {
@@ -555,428 +577,443 @@ class _TouristDashboardState extends State<TouristDashboard> {
       overlayOpacity: 0.08,
       child: Scaffold(
         body: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    const OfflineIndicator(),
-                    _buildHeader(
-                      context: context,
-                      authProvider: authProvider,
-                      bookingProvider: bookingProvider,
-                      listingProvider: listingProvider,
-                      notificationProvider: notificationProvider,
-                      locale: locale,
-                      chatProvider: chatProvider,
-                      isMobile: isMobile,
-                      fontSize: fontSize,
-                      padding: padding,
-                    ),
-                    Padding(
-                      padding: padding.copyWith(top: 0, bottom: 12),
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: locale.translate(
-                            'Search destinations...',
-                            'Batla mehloli...',
-                          ),
-                          prefixIcon: Icon(
-                            Icons.search,
-                            size: ResponsiveLayout.getIconSize(context),
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
-                          ),
-                          filled: true,
-                          fillColor: Colors.white.withValues(alpha: 0.9),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: isMobile ? 12 : 16,
-                          ),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                  },
-                                )
-                              : null,
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: Colors.grey[300] ?? Colors.grey,
-                              width: 1,
+          child: Scrollbar(
+            controller: _dashboardScrollController,
+            thumbVisibility: true,
+            trackVisibility: true,
+            child: CustomScrollView(
+              controller: _dashboardScrollController,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      const OfflineIndicator(),
+                      Padding(
+                        padding: padding.copyWith(bottom: 0),
+                        child: _buildTourismContactStrip(
+                          locale: locale,
+                          isMobile: isMobile,
+                        ),
+                      ),
+                      _buildHeader(
+                        context: context,
+                        authProvider: authProvider,
+                        bookingProvider: bookingProvider,
+                        listingProvider: listingProvider,
+                        notificationProvider: notificationProvider,
+                        locale: locale,
+                        chatProvider: chatProvider,
+                        isMobile: isMobile,
+                        fontSize: fontSize,
+                        padding: padding,
+                      ),
+                      Padding(
+                        padding: padding.copyWith(top: 0, bottom: 12),
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: locale.translate(
+                              'Search destinations...',
+                              'Batla mehloli...',
                             ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(
-                              color: ColorPalette.primaryGreen,
-                              width: 2,
+                            prefixIcon: Icon(
+                              Icons.search,
+                              size: ResponsiveLayout.getIconSize(context),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white.withValues(alpha: 0.9),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: isMobile ? 12 : 16,
+                            ),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                    },
+                                  )
+                                : null,
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(
+                                color: Colors.grey[300] ?? Colors.grey,
+                                width: 1,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: ColorPalette.primaryGreen,
+                                width: 2,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: padding.copyWith(top: 0, bottom: 12),
-                      child: _buildDiscoverHero(
-                        locale: locale,
-                        isOverview: isOverview,
-                        listingCount: activeResultCount,
-                        fontSize: fontSize,
-                      ),
-                    ),
-                    Padding(
-                      padding: padding.copyWith(top: 0, bottom: 10),
-                      child: _buildSectionHeading(
-                        title: isOverview
-                            ? locale.translate(
-                                'Browse by Category', 'Batla ka Sehlopha')
-                            : _getTranslatedCategory(
-                                listingProvider.selectedCategory,
-                                locale,
-                              ),
-                        subtitle: isOverview
-                            ? locale.translate(
-                                'Pick the kind of experience you want today.',
-                                'Khetha mofuta oa boiphihlelo boo u bo batlang kajeno.',
-                              )
-                            : locale.translate(
-                                'Showing places matched to your selected category.',
-                                'Ho bonts\'a libaka tse tsamaellanang le sehlopha seo u se khethileng.',
-                              ),
-                      ),
-                    ),
-                    SizedBox(
-                      height: isMobile ? 48 : 56,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: padding.copyWith(top: 0, bottom: 0),
-                        itemCount: _categories.length,
-                        itemBuilder: (context, index) {
-                          final category = _categories[index];
-                          final isSelected =
-                              listingProvider.selectedCategory == category;
-
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: FilterChip(
-                              label: Text(
-                                _getTranslatedCategory(category, locale),
-                                style: TextStyle(
-                                  fontSize: isMobile ? 13 : 15,
-                                  fontWeight: isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.w500,
-                                ),
-                              ),
-                              selected: isSelected,
-                              onSelected: (_) {
-                                listingProvider.filterByCategory(category);
-                                if (category == 'Culture') {
-                                  cultureProvider.loadInitial();
-                                } else if (category == 'Upcoming Events') {
-                                  eventProvider.fetchUpcomingEvents();
-                                }
-                              },
-                              backgroundColor:
-                                  Colors.white.withValues(alpha: 0.7),
-                              selectedColor: ColorPalette.primaryGreen,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                side: BorderSide(
-                                  color: isSelected
-                                      ? ColorPalette.primaryGreen
-                                      : Colors.grey[300] ?? Colors.grey,
-                                  width: 1.5,
-                                ),
-                              ),
-                              labelStyle: TextStyle(
-                                color:
-                                    isSelected ? Colors.white : Colors.black87,
-                              ),
-                              padding: EdgeInsets.symmetric(
-                                horizontal: isMobile ? 12 : 16,
-                                vertical: isMobile ? 8 : 10,
-                              ),
-                              elevation: isSelected ? 4 : 1,
-                              shadowColor: ColorPalette.primaryGreen
-                                  .withValues(alpha: 0.3),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    if (isCultureView)
                       Padding(
-                        padding: padding.copyWith(top: 8, bottom: 6),
-                        child: SizedBox(
-                          height: 44,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            children: [
-                              ...[
-                                const {'name': 'All Types', 'slug': 'all'},
-                                ...cultureProvider.subcategories
-                                    .map((subcategory) => {
-                                          'name': subcategory.name,
-                                          'slug': subcategory.slug,
-                                        }),
-                              ].map((item) {
-                                final type = item['name']!;
-                                final slug = item['slug']!;
-                                final selected =
-                                    cultureProvider.selectedSubcategorySlug ==
-                                        slug;
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: ChoiceChip(
-                                    label: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          _cultureTypeIcon(type),
-                                          size: 15,
-                                          color: selected
-                                              ? Colors.white
-                                              : _cultureTypeColor(type),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          _getTranslatedCultureType(
-                                              type, locale),
-                                          style: TextStyle(
+                        padding: padding.copyWith(top: 0, bottom: 12),
+                        child: _buildDiscoverHero(
+                          locale: locale,
+                          isOverview: isOverview,
+                          listingCount: activeResultCount,
+                          fontSize: fontSize,
+                        ),
+                      ),
+                      Padding(
+                        padding: padding.copyWith(top: 0, bottom: 10),
+                        child: _buildSectionHeading(
+                          title: isOverview
+                              ? locale.translate(
+                                  'Browse by Category', 'Batla ka Sehlopha')
+                              : _getTranslatedCategory(
+                                  listingProvider.selectedCategory,
+                                  locale,
+                                ),
+                          subtitle: isOverview
+                              ? locale.translate(
+                                  'Pick the kind of experience you want today.',
+                                  'Khetha mofuta oa boiphihlelo boo u bo batlang kajeno.',
+                                )
+                              : locale.translate(
+                                  'Showing places matched to your selected category.',
+                                  'Ho bonts\'a libaka tse tsamaellanang le sehlopha seo u se khethileng.',
+                                ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: isMobile ? 48 : 56,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: padding.copyWith(top: 0, bottom: 0),
+                          itemCount: _categories.length,
+                          itemBuilder: (context, index) {
+                            final category = _categories[index];
+                            final isSelected =
+                                listingProvider.selectedCategory == category;
+
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: FilterChip(
+                                label: Text(
+                                  _getTranslatedCategory(category, locale),
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 13 : 15,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                  ),
+                                ),
+                                selected: isSelected,
+                                onSelected: (_) {
+                                  listingProvider.filterByCategory(category);
+                                  if (category == 'Culture') {
+                                    cultureProvider.loadInitial();
+                                  } else if (category == 'Upcoming Events') {
+                                    eventProvider.fetchUpcomingEvents();
+                                  }
+                                },
+                                backgroundColor:
+                                    Colors.white.withValues(alpha: 0.7),
+                                selectedColor: ColorPalette.primaryGreen,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  side: BorderSide(
+                                    color: isSelected
+                                        ? ColorPalette.primaryGreen
+                                        : Colors.grey[300] ?? Colors.grey,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                labelStyle: TextStyle(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.black87,
+                                ),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isMobile ? 12 : 16,
+                                  vertical: isMobile ? 8 : 10,
+                                ),
+                                elevation: isSelected ? 4 : 1,
+                                shadowColor: ColorPalette.primaryGreen
+                                    .withValues(alpha: 0.3),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      if (isCultureView)
+                        Padding(
+                          padding: padding.copyWith(top: 8, bottom: 6),
+                          child: SizedBox(
+                            height: 44,
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              children: [
+                                ...[
+                                  const {'name': 'All Types', 'slug': 'all'},
+                                  ...cultureProvider.subcategories
+                                      .map((subcategory) => {
+                                            'name': subcategory.name,
+                                            'slug': subcategory.slug,
+                                          }),
+                                ].map((item) {
+                                  final type = item['name']!;
+                                  final slug = item['slug']!;
+                                  final selected =
+                                      cultureProvider.selectedSubcategorySlug ==
+                                          slug;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ChoiceChip(
+                                      label: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            _cultureTypeIcon(type),
+                                            size: 15,
                                             color: selected
                                                 ? Colors.white
                                                 : _cultureTypeColor(type),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            _getTranslatedCultureType(
+                                                type, locale),
+                                            style: TextStyle(
+                                              color: selected
+                                                  ? Colors.white
+                                                  : _cultureTypeColor(type),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      selected: selected,
+                                      onSelected: (_) {
+                                        cultureProvider.selectSubcategory(slug);
+                                      },
+                                      selectedColor: _cultureTypeColor(type),
+                                      backgroundColor:
+                                          _cultureTypeColor(type).withValues(
+                                        alpha: 0.12,
+                                      ),
+                                      side: BorderSide(
+                                        color: _cultureTypeColor(type)
+                                            .withValues(alpha: 0.35),
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (isOverview) ...[
+                        Padding(
+                          padding: padding.copyWith(top: 0, bottom: 12),
+                          child: _buildAiTouristPanel(locale, fontSize),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      if (isEventsView)
+                        Padding(
+                          padding: padding.copyWith(top: 0, bottom: 12),
+                          child: const UpcomingEventsWidget(
+                            title: 'Upcoming Events',
+                            limit: 8,
+                          ),
+                        ),
+                      Padding(
+                        padding: padding.copyWith(top: 0, bottom: 12),
+                        child: isEventsView
+                            ? const SizedBox.shrink()
+                            : _buildResultsHeader(
+                                context: context,
+                                locale: locale,
+                                listingProvider: listingProvider,
+                                cultureProvider: cultureProvider,
+                                fontSize: fontSize,
+                              ),
+                      ),
+                      if (activeOfflineMode && activeResultCount > 0)
+                        Padding(
+                          padding: padding.copyWith(top: 0, bottom: 12),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: ColorPalette.primaryGreen
+                                  .withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: ColorPalette.primaryGreen
+                                    .withValues(alpha: 0.18),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.wifi_off_rounded,
+                                  color: ColorPalette.darkGreen,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        locale.translate(
+                                          'Offline mode active',
+                                          'Mokgwa wa offline o sebetsa',
+                                        ),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: ColorPalette.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        locale.translate(
+                                          isEventsView
+                                              ? 'Showing cached events and syncing again when connection returns.'
+                                              : isCultureView
+                                                  ? 'Showing cached culture results and syncing again when connection returns.'
+                                                  : 'Showing cached listings and syncing again when connection returns.',
+                                          isEventsView
+                                              ? 'Re bontsha liketsahalo tse bolokilweng mme re tla hokahanya hape ha inthanete e khutla.'
+                                              : isCultureView
+                                                  ? 'Re bontsha dintlha tsa setso tse bolokilweng mme re tla hokahanya hape ha inthanete e khutla.'
+                                                  : 'Re bontsha listings tse bolokilweng mme re tla hokahanya hape ha inthanete e khutla.',
+                                        ),
+                                        style: TextStyle(
+                                          color: Colors.grey[700],
+                                          fontSize: fontSize - 3,
+                                        ),
+                                      ),
+                                      if (activeLastSyncedLabel != null) ...[
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          locale.translate(
+                                            'Last synced: $activeLastSyncedLabel',
+                                            'Qetellong e hokahantswe: $activeLastSyncedLabel',
+                                          ),
+                                          style: TextStyle(
+                                            color: Colors.grey[700],
+                                            fontSize: fontSize - 4,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       ],
-                                    ),
-                                    selected: selected,
-                                    onSelected: (_) {
-                                      cultureProvider.selectSubcategory(slug);
-                                    },
-                                    selectedColor: _cultureTypeColor(type),
-                                    backgroundColor:
-                                        _cultureTypeColor(type).withValues(
-                                      alpha: 0.12,
-                                    ),
-                                    side: BorderSide(
-                                      color: _cultureTypeColor(type)
-                                          .withValues(alpha: 0.35),
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(18),
-                                    ),
-                                  ),
-                                );
-                              }),
-                            ],
-                          ),
-                        ),
-                      ),
-                    if (isOverview) ...[
-                      Padding(
-                        padding: padding.copyWith(top: 0, bottom: 12),
-                        child: _buildAiTouristPanel(locale, fontSize),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    if (isEventsView)
-                      Padding(
-                        padding: padding.copyWith(top: 0, bottom: 12),
-                        child: const UpcomingEventsWidget(
-                          title: 'Upcoming Events',
-                          limit: 8,
-                        ),
-                      ),
-                    Padding(
-                      padding: padding.copyWith(top: 0, bottom: 12),
-                      child: isEventsView
-                          ? const SizedBox.shrink()
-                          : _buildResultsHeader(
-                              context: context,
-                              locale: locale,
-                              listingProvider: listingProvider,
-                              cultureProvider: cultureProvider,
-                              fontSize: fontSize,
-                            ),
-                    ),
-                    if (activeOfflineMode && activeResultCount > 0)
-                      Padding(
-                        padding: padding.copyWith(top: 0, bottom: 12),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: ColorPalette.primaryGreen
-                                .withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: ColorPalette.primaryGreen
-                                  .withValues(alpha: 0.18),
-                            ),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(
-                                Icons.wifi_off_rounded,
-                                color: ColorPalette.darkGreen,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      locale.translate(
-                                        'Offline mode active',
-                                        'Mokgwa wa offline o sebetsa',
-                                      ),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: ColorPalette.textPrimary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      locale.translate(
-                                        isEventsView
-                                            ? 'Showing cached events and syncing again when connection returns.'
-                                            : isCultureView
-                                                ? 'Showing cached culture results and syncing again when connection returns.'
-                                                : 'Showing cached listings and syncing again when connection returns.',
-                                        isEventsView
-                                            ? 'Re bontsha liketsahalo tse bolokilweng mme re tla hokahanya hape ha inthanete e khutla.'
-                                            : isCultureView
-                                                ? 'Re bontsha dintlha tsa setso tse bolokilweng mme re tla hokahanya hape ha inthanete e khutla.'
-                                                : 'Re bontsha listings tse bolokilweng mme re tla hokahanya hape ha inthanete e khutla.',
-                                      ),
-                                      style: TextStyle(
-                                        color: Colors.grey[700],
-                                        fontSize: fontSize - 3,
-                                      ),
-                                    ),
-                                    if (activeLastSyncedLabel != null) ...[
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        locale.translate(
-                                          'Last synced: $activeLastSyncedLabel',
-                                          'Qetellong e hokahantswe: $activeLastSyncedLabel',
-                                        ),
-                                        style: TextStyle(
-                                          color: Colors.grey[700],
-                                          fontSize: fontSize - 4,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
                                     ],
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-              ),
-              if (activeLoading)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (isEventsView)
-                const SliverToBoxAdapter(child: SizedBox.shrink())
-              else if (activeResultCount == 0)
-                SliverFillRemaining(
-                  hasScrollBody: true,
-                  child: SingleChildScrollView(
-                    padding: padding,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: MediaQuery.of(context).size.height * 0.48,
-                      ),
-                      child: _buildEmptyState(
-                        context: context,
-                        locale: locale,
-                        listingProvider: listingProvider,
-                        cultureProvider: cultureProvider,
-                        fontSize: fontSize,
-                      ),
-                    ),
+                    ],
                   ),
-                )
-              else
-                SliverPadding(
-                  padding: padding,
-                  sliver: SliverGrid(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: gridCrossAxisCount,
-                      childAspectRatio: isMobile ? 0.7 : 0.8,
-                      crossAxisSpacing: isMobile ? 8 : 12,
-                      mainAxisSpacing: isMobile ? 8 : 12,
+                ),
+                if (activeLoading)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (isEventsView)
+                  const SliverToBoxAdapter(child: SizedBox.shrink())
+                else if (activeResultCount == 0)
+                  SliverFillRemaining(
+                    hasScrollBody: true,
+                    child: SingleChildScrollView(
+                      padding: padding,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: MediaQuery.of(context).size.height * 0.48,
+                        ),
+                        child: _buildEmptyState(
+                          context: context,
+                          locale: locale,
+                          listingProvider: listingProvider,
+                          cultureProvider: cultureProvider,
+                          fontSize: fontSize,
+                        ),
+                      ),
                     ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        if (isCultureView) {
-                          final vendor = cultureProvider.vendors[index];
-                          return CultureVendorCard(
-                            vendor: vendor,
-                            onTap: () {
-                              if (vendor.linkedListingId != null &&
-                                  vendor.linkedListingId!.isNotEmpty) {
+                  )
+                else
+                  SliverPadding(
+                    padding: padding,
+                    sliver: SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: gridCrossAxisCount,
+                        childAspectRatio: isMobile ? 0.7 : 0.8,
+                        crossAxisSpacing: isMobile ? 8 : 12,
+                        mainAxisSpacing: isMobile ? 8 : 12,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          if (isCultureView) {
+                            final vendor = cultureProvider.vendors[index];
+                            return CultureVendorCard(
+                              vendor: vendor,
+                              onTap: () {
+                                if (vendor.linkedListingId != null &&
+                                    vendor.linkedListingId!.isNotEmpty) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ListingDetailScreen(
+                                        listingId: vendor.linkedListingId!,
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => ListingDetailScreen(
-                                      listingId: vendor.linkedListingId!,
-                                    ),
+                                    builder: (_) => CultureVendorDetailScreen(
+                                        vendor: vendor),
                                   ),
                                 );
-                                return;
-                              }
+                              },
+                            );
+                          }
 
+                          final listing = listingProvider.listings[index];
+                          return ListingCard(
+                            listing: listing,
+                            onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      CultureVendorDetailScreen(vendor: vendor),
+                                  builder: (context) => ListingDetailScreen(
+                                    listingId: listing.id.toString(),
+                                  ),
                                 ),
                               );
                             },
                           );
-                        }
-
-                        final listing = listingProvider.listings[index];
-                        return ListingCard(
-                          listing: listing,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ListingDetailScreen(
-                                  listingId: listing.id.toString(),
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                      childCount: isCultureView
-                          ? cultureProvider.vendors.length
-                          : listingProvider.listings.length,
+                        },
+                        childCount: isCultureView
+                            ? cultureProvider.vendors.length
+                            : listingProvider.listings.length,
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
         bottomNavigationBar: isMobile
@@ -1194,10 +1231,10 @@ class _TouristDashboardState extends State<TouristDashboard> {
               ),
               const SizedBox(height: 10),
               SizedBox(
-                height: 168,
+                height: 188,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  itemCount: _aiHotspots.take(4).length,
+                  itemCount: _aiHotspots.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 10),
                   itemBuilder: (context, index) => _buildTouristHotspotCard(
                     hotspot: _aiHotspots[index],
@@ -1240,17 +1277,17 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 ),
               ),
               const SizedBox(height: 10),
-              ..._aiRecommendations.take(3).map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _buildTouristRecommendationCard(
-                        item: item,
-                        locale: locale,
-                      ),
-                    ),
+              ..._aiRecommendations.map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _buildTouristRecommendationCard(
+                    item: item,
+                    locale: locale,
                   ),
+                ),
+              ),
             ],
-            if (false && _aiHotspots.isNotEmpty) ...[
+            if (_showLegacyAiSections && _aiHotspots.isNotEmpty) ...[
               Row(
                 children: [
                   Expanded(
@@ -1343,7 +1380,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
               ),
               const SizedBox(height: 16),
             ],
-            if (false && _aiRecommendations.isNotEmpty) ...[
+            if (_showLegacyAiSections && _aiRecommendations.isNotEmpty) ...[
               Text(
                 locale.translate(
                     'Suggested Activities', 'Mesebetsi e Sisinywang'),
@@ -1387,7 +1424,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     ),
                   ),
             ],
-            if (false && _aiHotspots.isNotEmpty) ...[
+            if (_showLegacyAiSections && _aiHotspots.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
                 locale.translate('Hotspots Right Now', 'Libaka Tse Chesehang'),
@@ -1637,6 +1674,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
         onTap: () => _openHotspotDiscovery(hotspot),
         child: Ink(
           width: 252,
+          height: 176,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
@@ -1687,12 +1725,13 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
+                        fontSize: 12,
                       ),
                     ),
                   ),
                 ],
               ),
-              const Spacer(),
+              const SizedBox(height: 22),
               Text(
                 name,
                 maxLines: 2,
@@ -1700,18 +1739,18 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
-                  fontSize: 18,
+                  fontSize: 17,
                   height: 1.15,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 '$district • $category',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Colors.white70),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   const Icon(
@@ -2596,4 +2635,79 @@ class _TouristDashboardState extends State<TouristDashboard> {
       ),
     );
   }
+
+  Widget _buildTourismContactStrip({
+    required LocaleProvider locale,
+    required bool isMobile,
+  }) {
+    final items = [
+      (
+        Icons.account_balance_rounded,
+        locale.translate('Lesotho Tourism', 'Bohahlaudi ba Lesotho')
+      ),
+      (Icons.phone_rounded, '+266 2231 2238'),
+      (Icons.email_rounded, 'info@ltdc.org.ls'),
+      (Icons.place_rounded, 'Maseru, Lesotho'),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 18,
+        vertical: isMobile ? 10 : 12,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF103B3F).withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 8,
+        alignment: isMobile ? WrapAlignment.start : WrapAlignment.spaceBetween,
+        children: items
+            .map(
+              (item) => _contactPill(
+                icon: item.$1,
+                label: item.$2,
+                compact: isMobile,
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _contactPill({
+    required IconData icon,
+    required String label,
+    required bool compact,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 12,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: compact ? 15 : 17, color: const Color(0xFFBDE05A)),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: compact ? 11 : 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 }

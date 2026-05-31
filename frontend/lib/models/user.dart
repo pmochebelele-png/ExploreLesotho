@@ -9,7 +9,9 @@ class User {
   final String? createdAt;
   final bool isSuspended;
   final bool verified;
+  final bool emailVerificationSent;
   final String? businessName;
+  final String? businessType;
   final int? userId; // MySQL ID
   final String? linkedCultureVendorId;
 
@@ -23,7 +25,9 @@ class User {
     this.createdAt,
     this.isSuspended = false,
     this.verified = false,
+    this.emailVerificationSent = false,
     this.businessName,
+    this.businessType,
     this.userId,
     this.linkedCultureVendorId,
   });
@@ -43,7 +47,9 @@ class User {
       createdAt: json['created_at'] ?? json['createdAt'],
       isSuspended: json['suspended'] == 1 || json['isSuspended'] == true,
       verified: json['verified'] == 1 || json['verified'] == true,
+      emailVerificationSent: json['emailVerificationSent'] == true,
       businessName: json['business_name'] ?? json['businessName'],
+      businessType: json['business_type'] ?? json['businessType'],
       linkedCultureVendorId: json['linkedCultureVendorId']?.toString(),
     );
   }
@@ -60,7 +66,9 @@ class User {
       'created_at': createdAt,
       'suspended': isSuspended ? 1 : 0,
       'verified': verified ? 1 : 0,
+      'emailVerificationSent': emailVerificationSent,
       'business_name': businessName,
+      'business_type': businessType,
       'linkedCultureVendorId': linkedCultureVendorId,
     };
   }
@@ -75,7 +83,9 @@ class User {
     String? createdAt,
     bool? isSuspended,
     bool? verified,
+    bool? emailVerificationSent,
     String? businessName,
+    String? businessType,
     int? userId,
     String? linkedCultureVendorId,
   }) {
@@ -90,7 +100,10 @@ class User {
       createdAt: createdAt ?? this.createdAt,
       isSuspended: isSuspended ?? this.isSuspended,
       verified: verified ?? this.verified,
+      emailVerificationSent:
+          emailVerificationSent ?? this.emailVerificationSent,
       businessName: businessName ?? this.businessName,
+      businessType: businessType ?? this.businessType,
       linkedCultureVendorId:
           linkedCultureVendorId ?? this.linkedCultureVendorId,
     );

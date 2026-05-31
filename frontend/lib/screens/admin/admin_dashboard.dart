@@ -29,6 +29,7 @@ class _AdminDashboardState extends State<AdminDashboard>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _overviewScrollController = ScrollController();
   bool _popupShown = false;
   bool _requestedInitialAdminLoad = false;
 
@@ -108,6 +109,7 @@ class _AdminDashboardState extends State<AdminDashboard>
     _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     _searchController.dispose();
+    _overviewScrollController.dispose();
     _addNameController.dispose();
     _addEmailController.dispose();
     _addBusinessNameController.dispose();
@@ -353,9 +355,14 @@ class _AdminDashboardState extends State<AdminDashboard>
       bool isMobile,
       double fontSize,
       EdgeInsets padding) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
+    return Scrollbar(
+      controller: _overviewScrollController,
+      thumbVisibility: true,
+      trackVisibility: true,
+      child: SingleChildScrollView(
+        controller: _overviewScrollController,
+        padding: const EdgeInsets.all(16),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Card(
@@ -465,8 +472,7 @@ class _AdminDashboardState extends State<AdminDashboard>
           ),
           const SizedBox(height: 24),
           Text(locale.translate('Platform Overview', 'Kakaretso ea Sethala'),
-              style:
-                  const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              style: _brightHeadingStyle(20)),
           const SizedBox(height: 16),
           GridView.count(
             shrinkWrap: true,
@@ -502,8 +508,7 @@ class _AdminDashboardState extends State<AdminDashboard>
           Text(
               locale.translate(
                   'Additional Insights', 'Lintlha Tse Eketsehileng'),
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              style: _brightHeadingStyle(18)),
           const SizedBox(height: 12),
           const AdvancedStatsGrid(),
           Card(
@@ -575,8 +580,7 @@ class _AdminDashboardState extends State<AdminDashboard>
           ),
           const SizedBox(height: 24),
           Text(locale.translate('Quick Actions', 'Liketso tse Potlakileng'),
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              style: _brightHeadingStyle(18)),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -621,7 +625,23 @@ class _AdminDashboardState extends State<AdminDashboard>
             ],
           ),
         ],
+        ),
       ),
+    );
+  }
+
+  TextStyle _brightHeadingStyle(double fontSize) {
+    return TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.bold,
+      color: Colors.white,
+      shadows: const [
+        Shadow(
+          color: Colors.black54,
+          blurRadius: 8,
+          offset: Offset(0, 2),
+        ),
+      ],
     );
   }
 

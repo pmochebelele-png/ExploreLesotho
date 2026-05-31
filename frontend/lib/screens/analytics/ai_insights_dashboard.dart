@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/themes/color_palette.dart';
@@ -17,11 +18,14 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
   final AIService _aiService = AIService();
   final TextEditingController _knowledgeQueryController =
       TextEditingController();
+  final ScrollController _insightsScrollController = ScrollController();
 
   bool _isLoading = true;
   bool _knowledgeLoading = false;
   String? _error;
+  String? _questionAnswer;
   Map<String, dynamic>? _dashboard;
+  Map<String, dynamic>? _charts;
   Map<String, dynamic>? _ltdcOverview;
   Map<String, dynamic>? _reviewAnalysis;
   List<Map<String, dynamic>> _forecast = [];
@@ -64,6 +68,7 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
   @override
   void dispose() {
     _knowledgeQueryController.dispose();
+    _insightsScrollController.dispose();
     super.dispose();
   }
 
@@ -95,6 +100,7 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
       final responses = await Future.wait([
         _aiService.getDashboard().timeout(const Duration(seconds: 8)),
         _aiService.getForecast().timeout(const Duration(seconds: 8)),
+        _aiService.getCharts().timeout(const Duration(seconds: 8)),
         _aiService.getHotspots().timeout(const Duration(seconds: 8)),
         _aiService.getRecommendations(
           role: 'admin',
@@ -125,11 +131,12 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
       setState(() {
         _dashboard = dashboard;
         _forecast = _asListOfMaps(responses[1]);
-        _hotspots = _asListOfMaps(responses[2]);
-        _recommendations = _asListOfMaps(responses[3]);
-        _ltdcOverview = _asMap(responses[4]);
-        _ltdcInsights = _asListOfMaps(responses[5]);
-        _reviewAnalysis = _asMap(responses[6]);
+        _charts = _asMap(responses[2]) ?? _asMap(dashboard['charts']);
+        _hotspots = _asListOfMaps(responses[3]);
+        _recommendations = _asListOfMaps(responses[4]);
+        _ltdcOverview = _asMap(responses[5]);
+        _ltdcInsights = _asListOfMaps(responses[6]);
+        _reviewAnalysis = _asMap(responses[7]);
         _isLoading = false;
       });
     } catch (e) {
@@ -150,10 +157,11 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
     });
 
     try {
-      final response = await _aiService.queryLtdcKnowledge(query, topK: 5);
+      final response = await _aiService.askScikitQuestion(query);
       if (!mounted) return;
       setState(() {
-        _knowledgeMatches = _asListOfMaps(response?['matches']);
+        _questionAnswer = response?['answer']?.toString();
+        _knowledgeMatches = _asListOfMaps(response?['evidence']);
       });
     } catch (_) {
       if (!mounted) return;
@@ -244,12 +252,22 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
         _asListOfMaps(legacyIntelligence['seasonal_hotspots']);
     final recentPlatformActivity =
         _buildRecentPlatformActivity(adminProvider, locale);
+    final arrivalsLine = _asListOfMaps(_charts?['arrivals_line']);
+    final forecastLine = _asListOfMaps(_charts?['forecast_line']);
+    final attractionBars = _asListOfMaps(_charts?['attractions_bar']);
+    final marketPie = _asListOfMaps(_charts?['source_market_pie']);
+    final sentimentPie = _asListOfMaps(_charts?['sentiment_pie']);
 
-    return RefreshIndicator(
-      onRefresh: _loadData,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
+    return Scrollbar(
+      controller: _insightsScrollController,
+      thumbVisibility: true,
+      trackVisibility: true,
+      child: RefreshIndicator(
+        onRefresh: _loadData,
+        child: ListView(
+          controller: _insightsScrollController,
+          padding: const EdgeInsets.all(16),
+          children: [
           Row(
             children: [
               const Icon(Icons.auto_awesome, color: Colors.green, size: 28),
@@ -263,6 +281,14 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black54,
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -279,7 +305,16 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
               'Connected to the trained ML service for platform insights, LTDC knowledge, and review sentiment analytics.',
               'E hokahane le tshebeletso ya ML bakeng sa tlhahlobo ya sethala, tsebo ya LTDC, le maikutlo a ditlhahlobo.',
             ),
-            style: TextStyle(color: Colors.grey[700]),
+            style: const TextStyle(
+              color: Colors.white,
+              shadows: [
+                Shadow(
+                  color: Colors.black45,
+                  blurRadius: 6,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 20),
           Wrap(
@@ -326,6 +361,53 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
               ),
             ],
           ),
+          if (arrivalsLine.isNotEmpty ||
+              forecastLine.isNotEmpty ||
+              attractionBars.isNotEmpty ||
+              marketPie.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            _buildSectionTitle(
+              locale.translate(
+                'Scikit Forecast Charts',
+                'Dichate tsa Polelopele ya Scikit',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                if (arrivalsLine.isNotEmpty)
+                  _buildLineChartCard(
+                    title: 'Monthly arrivals learned from dataset',
+                    rows: arrivalsLine,
+                    color: Colors.green,
+                  ),
+                if (forecastLine.isNotEmpty)
+                  _buildLineChartCard(
+                    title: 'Future visitor prediction',
+                    rows: forecastLine,
+                    color: Colors.blue,
+                  ),
+                if (attractionBars.isNotEmpty)
+                  _buildBarChartCard(
+                    title: 'Top attraction demand',
+                    rows: attractionBars,
+                    color: Colors.orange,
+                  ),
+                if (marketPie.isNotEmpty)
+                  _buildPieChartCard(
+                    title: 'Source market share',
+                    rows: marketPie,
+                  ),
+                if (sentimentPie.isNotEmpty)
+                  _buildPieChartCard(
+                    title: 'Visitor sentiment themes',
+                    rows: sentimentPie,
+                  ),
+              ],
+            ),
+          ],
           if (peakMonth.isNotEmpty ||
               topAttractions.isNotEmpty ||
               topMarkets.isNotEmpty ||
@@ -407,6 +489,12 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
             ],
           ),
           const SizedBox(height: 8),
+          if (_questionAnswer != null)
+            _buildListCard(
+              icon: Icons.psychology_alt_outlined,
+              title: 'Scikit answer',
+              subtitle: _questionAnswer,
+            ),
           if (_knowledgeMatches.isNotEmpty)
             ..._knowledgeMatches.take(3).map(
               (match) => _buildListCard(
@@ -438,7 +526,7 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
               _buildMetricCard(
                 Icons.topic_outlined,
                 locale.translate('Topics', 'Dihlooho'),
-                '${topics.length > 0 ? topics.length : ((ltdcSummary['topics'] as List?)?.length ?? 0)}',
+                '${topics.isNotEmpty ? topics.length : ((ltdcSummary['topics'] as List?)?.length ?? 0)}',
                 Colors.indigo,
               ),
               _buildMetricCard(
@@ -682,7 +770,8 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
                 subtitle: item['subtitle'] as String?,
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -742,13 +831,25 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
     return '${value ?? '-'}';
   }
 
+  double _numValue(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse('$value') ?? 0;
+  }
+
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
       style: const TextStyle(
         fontSize: 20,
         fontWeight: FontWeight.w800,
-        color: ColorPalette.textPrimary,
+        color: Colors.white,
+        shadows: [
+          Shadow(
+            color: Colors.black54,
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
     );
   }
@@ -907,6 +1008,225 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
                 ),
               ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLineChartCard({
+    required String title,
+    required List<Map<String, dynamic>> rows,
+    required Color color,
+  }) {
+    final values = rows.map((row) => _numValue(row['value'])).toList();
+    final maxY = values.isEmpty
+        ? 1.0
+        : values.reduce((a, b) => a > b ? a : b) * 1.15;
+    final minY = values.isEmpty
+        ? 0.0
+        : values.reduce((a, b) => a < b ? a : b) * 0.85;
+
+    return SizedBox(
+      width: 360,
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 190,
+                child: LineChart(
+                  LineChartData(
+                    minY: minY,
+                    maxY: maxY,
+                    gridData: FlGridData(show: true),
+                    titlesData: FlTitlesData(
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          interval: 3,
+                          getTitlesWidget: (value, meta) {
+                            final index = value.toInt();
+                            if (index < 0 || index >= rows.length) {
+                              return const SizedBox.shrink();
+                            }
+                            return Text(
+                              '${rows[index]['label']}'.substring(
+                                0,
+                                '${rows[index]['label']}'.length > 3
+                                    ? 3
+                                    : '${rows[index]['label']}'.length,
+                              ),
+                              style: const TextStyle(fontSize: 10),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    borderData: FlBorderData(show: false),
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: [
+                          for (var i = 0; i < values.length; i++)
+                            FlSpot(i.toDouble(), values[i]),
+                        ],
+                        isCurved: true,
+                        color: color,
+                        barWidth: 3,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: color.withValues(alpha: 0.12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBarChartCard({
+    required String title,
+    required List<Map<String, dynamic>> rows,
+    required Color color,
+  }) {
+    final maxValue = rows
+        .map((row) => _numValue(row['value']))
+        .fold<double>(1, (max, value) => value > max ? value : max);
+
+    return SizedBox(
+      width: 360,
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 190,
+                child: BarChart(
+                  BarChartData(
+                    maxY: maxValue * 1.2,
+                    gridData: FlGridData(show: true),
+                    borderData: FlBorderData(show: false),
+                    titlesData: const FlTitlesData(
+                      topTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      rightTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                    ),
+                    barGroups: [
+                      for (var i = 0; i < rows.length; i++)
+                        BarChartGroupData(
+                          x: i,
+                          barRods: [
+                            BarChartRodData(
+                              toY: _numValue(rows[i]['value']),
+                              color: color,
+                              width: 16,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPieChartCard({
+    required String title,
+    required List<Map<String, dynamic>> rows,
+  }) {
+    final colors = [
+      Colors.green,
+      Colors.blue,
+      Colors.orange,
+      Colors.purple,
+      Colors.teal,
+      Colors.redAccent,
+    ];
+
+    return SizedBox(
+      width: 360,
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 190,
+                child: PieChart(
+                  PieChartData(
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 34,
+                    sections: [
+                      for (var i = 0; i < rows.length; i++)
+                        PieChartSectionData(
+                          color: colors[i % colors.length],
+                          value: _numValue(rows[i]['value']),
+                          title: '${_numValue(rows[i]['value']).round()}%',
+                          radius: 58,
+                          titleStyle: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  for (var i = 0; i < rows.length; i++)
+                    Text(
+                      '${rows[i]['label']}',
+                      style: TextStyle(
+                        color: colors[i % colors.length],
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

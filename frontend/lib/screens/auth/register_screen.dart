@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/themes/color_palette.dart';
+import '../../utils/input_rules.dart';
 import '../../utils/responsive_layout.dart';
+import '../../utils/vendor_facility.dart';
 import '../../widgets/explore_lesotho_logo.dart';
 import 'login_screen.dart';
 
@@ -27,20 +29,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _businessPhoneController = TextEditingController();
   final _businessAddressController = TextEditingController();
   final _businessTypeController = TextEditingController();
+  final _districtController = TextEditingController();
+  final _previousExperienceController = TextEditingController(text: '0');
 
   String _selectedRole = 'tourist';
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _agreeToTerms = false;
+  bool _hasLicense = false;
+  bool _licenseValid = false;
+  bool _taxClearance = false;
+  String _selectedFacilityKey = VendorFacilityTaxonomy.facilities.first.key;
 
-  final List<String> _businessTypes = [
-    'Accommodation',
-    'Tour Operator',
-    'Restaurant',
-    'Adventure Sports',
-    'Cultural Tours',
-    'Transport',
-    'Other',
+  final List<String> _districts = [
+    'Maseru',
+    'Berea',
+    'Leribe',
+    'Butha-Buthe',
+    'Mokhotlong',
+    'Thaba-Tseka',
+    'Mafeteng',
+    'Mohale\'s Hoek',
+    'Quthing',
+    'Qacha\'s Nek',
   ];
 
   @override
@@ -54,6 +65,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _businessPhoneController.dispose();
     _businessAddressController.dispose();
     _businessTypeController.dispose();
+    _districtController.dispose();
+    _previousExperienceController.dispose();
     super.dispose();
   }
 
@@ -82,6 +95,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             : _phoneController.text.trim(),
       );
     } else {
+      final selectedFacility = VendorFacilityTaxonomy.facilities
+          .firstWhere((item) => item.key == _selectedFacilityKey);
+      final resolvedBusinessType = _businessTypeController.text.trim().isEmpty
+          ? selectedFacility.businessTypes.first
+          : _businessTypeController.text.trim();
       success = await authProvider.registerVendor(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
@@ -96,15 +114,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
         businessAddress: _businessAddressController.text.trim().isEmpty
             ? null
             : _businessAddressController.text.trim(),
-        businessType: _businessTypeController.text.trim().isEmpty
+        businessType: resolvedBusinessType,
+        district: _districtController.text.trim().isEmpty
             ? null
-            : _businessTypeController.text.trim(),
+            : _districtController.text.trim(),
+        hasLicense: _hasLicense,
+        licenseValid: _licenseValid,
+        taxClearance: _taxClearance,
+        previousExperience:
+            int.tryParse(_previousExperienceController.text.trim()) ?? 0,
+        rating: 3,
       );
     }
 
     if (success && mounted) {
       final user = authProvider.user;
       if (user != null) {
+        if (user.emailVerificationSent) {
+          final verified = await _showEmailVerificationDialog(user.email);
+          if (!mounted || !verified) return;
+        }
+
         if (user.isVendor) {
           final matchedCultureProfile = user.linkedCultureVendorId != null &&
               user.linkedCultureVendorId!.isNotEmpty;
@@ -125,12 +155,102 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (user.isAdmin) {
           Navigator.pushReplacementNamed(context, '/admin-dashboard');
         } else if (user.isVendor) {
+          if (user.isPendingVendor) {
+            Navigator.pushReplacementNamed(context, '/login');
+            return;
+          }
           Navigator.pushReplacementNamed(context, '/vendor-dashboard');
         } else {
           Navigator.pushReplacementNamed(context, '/tourist-dashboard');
         }
       }
     }
+  }
+
+  Future<bool> _showEmailVerificationDialog(String email) async {
+    final codeController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var isSubmitting = false;
+
+    final verified = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Verify your email'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Enter the 6-digit code we sent to $email.'),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: codeController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: InputRules.digits,
+                      decoration: const InputDecoration(
+                        labelText: 'Verification code',
+                        prefixIcon: Icon(Icons.mark_email_read_outlined),
+                      ),
+                      validator: (value) {
+                        final code = value?.trim() ?? '';
+                        if (code.length < 6) {
+                          return 'Enter the code from your email';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Verify later'),
+                ),
+                ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) return;
+                          setDialogState(() => isSubmitting = true);
+                          final authProvider = Provider.of<AuthProvider>(
+                            this.context,
+                            listen: false,
+                          );
+                          final success = await authProvider.verifyEmail(
+                            email: email,
+                            code: codeController.text.trim(),
+                          );
+                          if (success && dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop(true);
+                            return;
+                          }
+                          setDialogState(() => isSubmitting = false);
+                        },
+                  child: isSubmitting
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Verify'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    codeController.dispose();
+    return verified ?? false;
   }
 
   @override
@@ -282,6 +402,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         // Full Name
                         TextFormField(
                           controller: _nameController,
+                          inputFormatters: InputRules.name,
                           decoration: InputDecoration(
                             labelText: 'Full Name',
                             prefixIcon: const Icon(Icons.person_outline),
@@ -296,12 +417,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your name';
-                            }
-                            return null;
-                          },
+                          validator: (value) =>
+                              InputRules.requiredName(value, 'your name'),
                         ),
                         const SizedBox(height: 12),
 
@@ -309,6 +426,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
+                          inputFormatters: InputRules.email,
                           decoration: InputDecoration(
                             labelText: 'Email',
                             prefixIcon: const Icon(Icons.email_outlined),
@@ -323,15 +441,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your email';
-                            }
-                            if (!value.contains('@')) {
-                              return 'Please enter a valid email';
-                            }
-                            return null;
-                          },
+                          validator: InputRules.requiredEmail,
                         ),
                         const SizedBox(height: 12),
 
@@ -424,6 +534,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         TextFormField(
                           controller: _phoneController,
                           keyboardType: TextInputType.phone,
+                          inputFormatters: InputRules.phone,
                           decoration: InputDecoration(
                             labelText: 'Phone (Optional)',
                             prefixIcon: const Icon(Icons.phone_outlined),
@@ -438,6 +549,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ),
                           ),
+                          validator: InputRules.optionalPhone,
                         ),
 
                         // Vendor Specific Fields
@@ -458,6 +570,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           // Business Name
                           TextFormField(
                             controller: _businessNameController,
+                            inputFormatters: InputRules.businessName,
                             decoration: InputDecoration(
                               labelText: 'Business Name *',
                               prefixIcon: const Icon(Icons.store_outlined),
@@ -472,12 +585,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               ),
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your business name';
-                              }
-                              return null;
-                            },
+                            validator: (value) =>
+                                InputRules.requiredBusinessText(
+                              value,
+                              'your business name',
+                            ),
                           ),
                           const SizedBox(height: 12),
 
@@ -485,6 +597,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           TextFormField(
                             controller: _businessPhoneController,
                             keyboardType: TextInputType.phone,
+                            inputFormatters: InputRules.phone,
                             decoration: InputDecoration(
                               labelText: 'Business Phone (Optional)',
                               prefixIcon: const Icon(Icons.phone_outlined),
@@ -502,13 +615,51 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           const SizedBox(height: 12),
 
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedFacilityKey,
+                            decoration: InputDecoration(
+                              labelText: 'Vendor Facility',
+                              prefixIcon: const Icon(Icons.account_tree_outlined),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: ColorPalette.primaryGreen,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            items: VendorFacilityTaxonomy.facilities
+                                .map((facility) => DropdownMenuItem(
+                                      value: facility.key,
+                                      child: Text(facility.label),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              final facility = VendorFacilityTaxonomy.facilities
+                                  .firstWhere((item) => item.key == value);
+                              setState(() {
+                                _selectedFacilityKey = facility.key;
+                                _businessTypeController.text =
+                                    facility.businessTypes.first;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 12),
+
                           // Business Type
                           DropdownButtonFormField<String>(
                             initialValue: _businessTypeController.text.isEmpty
-                                ? null
+                                ? VendorFacilityTaxonomy.facilities
+                                    .firstWhere((item) =>
+                                        item.key == _selectedFacilityKey)
+                                    .businessTypes
+                                    .first
                                 : _businessTypeController.text,
                             decoration: InputDecoration(
-                              labelText: 'Business Type',
+                              labelText: 'Facility Subtype',
                               prefixIcon: const Icon(Icons.category_outlined),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -521,14 +672,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               ),
                             ),
-                            items: _businessTypes.map((type) {
+                            items: VendorFacilityTaxonomy.facilities
+                                .firstWhere(
+                                    (item) => item.key == _selectedFacilityKey)
+                                .businessTypes
+                                .map((type) {
                               return DropdownMenuItem(
                                 value: type,
                                 child: Text(type),
                               );
                             }).toList(),
                             onChanged: (value) {
-                              _businessTypeController.text = value ?? '';
+                              setState(() {
+                                _businessTypeController.text = value ?? '';
+                              });
                             },
                           ),
                           const SizedBox(height: 12),
@@ -537,6 +694,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           TextFormField(
                             controller: _businessAddressController,
                             maxLines: 2,
+                            inputFormatters: InputRules.address,
                             decoration: InputDecoration(
                               labelText: 'Business Address (Optional)',
                               prefixIcon:
@@ -551,6 +709,117 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   width: 2,
                                 ),
                               ),
+                            ),
+                            validator: InputRules.optionalPhone,
+                          ),
+                          const SizedBox(height: 12),
+
+                          DropdownButtonFormField<String>(
+                            initialValue: _districtController.text.isEmpty
+                                ? null
+                                : _districtController.text,
+                            decoration: InputDecoration(
+                              labelText: 'District *',
+                              prefixIcon:
+                                  const Icon(Icons.location_city_outlined),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: ColorPalette.primaryGreen,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            items: _districts.map((district) {
+                              return DropdownMenuItem(
+                                value: district,
+                                child: Text(district),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              _districtController.text = value ?? '';
+                            },
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please select your district';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+
+                          TextFormField(
+                            controller: _previousExperienceController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: InputRules.digits,
+                            decoration: InputDecoration(
+                              labelText: 'Years of Experience *',
+                              prefixIcon: const Icon(Icons.timeline_outlined),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: ColorPalette.primaryGreen,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            validator: (value) {
+                              final years = int.tryParse(value?.trim() ?? '');
+                              if (years == null || years < 0) {
+                                return 'Enter valid years of experience';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            activeColor: ColorPalette.primaryGreen,
+                            title: const Text('I have a business license'),
+                            value: _hasLicense,
+                            onChanged: (value) {
+                              setState(() {
+                                _hasLicense = value ?? false;
+                                if (!_hasLicense) _licenseValid = false;
+                              });
+                            },
+                          ),
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            activeColor: ColorPalette.primaryGreen,
+                            title: const Text('My license is valid'),
+                            value: _licenseValid,
+                            onChanged: _hasLicense
+                                ? (value) {
+                                    setState(() {
+                                      _licenseValid = value ?? false;
+                                    });
+                                  }
+                                : null,
+                          ),
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            activeColor: ColorPalette.primaryGreen,
+                            title: const Text('I have tax clearance'),
+                            value: _taxClearance,
+                            onChanged: (value) {
+                              setState(() {
+                                _taxClearance = value ?? false;
+                              });
+                            },
+                          ),
+                          Text(
+                            'These fields feed the ML verifier for automatic vendor approval. Vendors with missing documents can still register, but may remain pending for admin review.',
+                            style: TextStyle(
+                              color: Colors.grey.shade700,
+                              fontSize: 12,
                             ),
                           ),
                         ],

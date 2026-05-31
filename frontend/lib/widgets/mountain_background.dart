@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/themes/color_palette.dart';
+
 class MountainBackground extends StatelessWidget {
   final Widget child;
   final Color? overlayColor;
@@ -9,7 +11,7 @@ class MountainBackground extends StatelessWidget {
     super.key,
     required this.child,
     this.overlayColor,
-    this.overlayOpacity = 0.3,
+    this.overlayOpacity = 0.16,
   });
 
   @override
@@ -20,8 +22,8 @@ class MountainBackground extends StatelessWidget {
           child: Image.asset(
             'assets/images/dashboard_background.jpg',
             fit: BoxFit.cover,
-            color: Colors.black.withOpacity(0.20),
-            colorBlendMode: BlendMode.darken,
+            color: Colors.white.withOpacity(0.08),
+            colorBlendMode: BlendMode.lighten,
             errorBuilder: (context, error, stackTrace) {
               return Stack(
                 fit: StackFit.expand,
@@ -58,11 +60,21 @@ class MountainBackground extends StatelessWidget {
           ),
         ),
         Container(
-          color: (overlayColor ?? Colors.black).withOpacity(overlayOpacity),
+          color: (overlayColor ?? Colors.white).withOpacity(overlayOpacity),
         ),
         Theme(
           data: Theme.of(context).copyWith(
             scaffoldBackgroundColor: Colors.transparent,
+            scrollbarTheme: ScrollbarThemeData(
+              thickness: const WidgetStatePropertyAll(8),
+              radius: const Radius.circular(999),
+              thumbColor: WidgetStatePropertyAll(
+                ColorPalette.primaryGreen.withOpacity(0.88),
+              ),
+              trackColor: WidgetStatePropertyAll(
+                Colors.white.withOpacity(0.36),
+              ),
+            ),
           ),
           child: child,
         ),

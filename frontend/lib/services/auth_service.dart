@@ -123,6 +123,12 @@ class AuthService {
     String? businessPhone,
     String? businessAddress,
     String? businessType,
+    String? district,
+    bool hasLicense = false,
+    bool licenseValid = false,
+    bool taxClearance = false,
+    int previousExperience = 0,
+    double rating = 3,
   }) async {
     try {
       final response = await http.post(
@@ -136,6 +142,12 @@ class AuthService {
           'business_phone': businessPhone ?? phone,
           'business_address': businessAddress,
           'business_type': businessType,
+          'district': district,
+          'has_license': hasLicense,
+          'license_valid': licenseValid,
+          'tax_clearance': taxClearance,
+          'previous_experience': previousExperience,
+          'rating': rating,
         }),
       );
 
@@ -213,6 +225,37 @@ class AuthService {
         'message': _fallbackMessage(
           data,
           'Unable to reset password',
+          response.statusCode,
+        ),
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Connection error: $e',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/verify-email'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'code': code,
+        }),
+      );
+
+      final data = _safeDecodeResponse(response);
+      return {
+        'success': data['success'] == true,
+        'message': _fallbackMessage(
+          data,
+          'Unable to verify email',
           response.statusCode,
         ),
       };

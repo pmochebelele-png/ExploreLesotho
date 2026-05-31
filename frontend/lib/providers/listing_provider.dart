@@ -1,6 +1,7 @@
 // lib/providers/listing_provider.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../data/tourism_seed_listings.dart';
 import '../models/listing.dart';
 import '../services/cache_service.dart';
 import '../services/listing_service.dart';
@@ -95,11 +96,29 @@ class ListingProvider extends ChangeNotifier {
   void _applyFetchResult(Map<String, dynamic> result) {
     if (result['success'] == true) {
       _listings = List<Listing>.from(result['listings'] ?? []);
+      _mergeTourismSeedListings();
       _error = null;
       _isOfflineMode = false;
     } else {
       _error = result['error']?.toString() ?? 'Failed to load listings';
       _isOfflineMode = true;
+    }
+  }
+
+  void _mergeTourismSeedListings() {
+    final seenIds = _listings.map((listing) => listing.id).toSet();
+    final seenTitles = _listings
+        .map((listing) => listing.title.trim().toLowerCase())
+        .where((title) => title.isNotEmpty)
+        .toSet();
+
+    final missingSeeds = TourismSeedListings.values.where((seed) {
+      final title = seed.title.trim().toLowerCase();
+      return !seenIds.contains(seed.id) && !seenTitles.contains(title);
+    }).toList();
+
+    if (missingSeeds.isNotEmpty) {
+      _listings = [..._listings, ...missingSeeds];
     }
   }
 
@@ -118,12 +137,13 @@ class ListingProvider extends ChangeNotifier {
       final cachedListings = await _cacheService?.loadListings() ?? const [];
       if (cachedListings.isNotEmpty) {
         _listings = cachedListings;
+        _mergeTourismSeedListings();
         _isOfflineMode = true;
         _error = 'Offline mode: showing cached listings';
         _lastSyncedAt = _cacheService?.getListingsLastUpdated();
       } else {
         _applyFetchResult(result);
-        _listings = [];
+        _listings = TourismSeedListings.values;
       }
     }
 
@@ -142,8 +162,12 @@ class ListingProvider extends ChangeNotifier {
       final cachedListings = await _cacheService?.loadListings() ?? const [];
       if (cachedListings.isNotEmpty) {
         _listings = cachedListings;
+        _mergeTourismSeedListings();
         _isOfflineMode = true;
         _lastSyncedAt = _cacheService?.getListingsLastUpdated();
+      } else {
+        _listings = TourismSeedListings.values;
+        _isOfflineMode = true;
       }
     }
     notifyListeners();

@@ -7,6 +7,7 @@ import '../../providers/payment_provider.dart';
 import '../../core/themes/color_palette.dart';
 import '../../models/payment.dart';
 import '../../services/notification_service.dart';
+import '../../utils/input_rules.dart';
 import 'payment_success_screen.dart';
 import 'payment_history_screen.dart';
 
@@ -249,11 +250,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
           const SizedBox(height: 32),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              controller: _pinController,
-              obscureText: true,
-              maxLength: 4,
-              keyboardType: TextInputType.number,
+          child: TextField(
+            controller: _pinController,
+            obscureText: true,
+            maxLength: 4,
+            keyboardType: TextInputType.number,
+            inputFormatters: InputRules.digits,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 24,
@@ -429,9 +431,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: _phoneController,
-                    decoration: InputDecoration(
+        TextField(
+          controller: _phoneController,
+          inputFormatters: InputRules.phone,
+          decoration: InputDecoration(
                       hintText: _selectedMethod == PaymentMethod.mpesa
                           ? locale.translate('Enter your M-Pesa number (e.g., 5888XXXXX)', 'Kenya nomoro ea hao ea M-Pesa (mohlala, 5888XXXXX)')
                           : locale.translate('Enter your EcoCash number', 'Kenya nomoro ea hao ea EcoCash'),
