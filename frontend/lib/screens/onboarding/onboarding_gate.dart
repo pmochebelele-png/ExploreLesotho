@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/themes/color_palette.dart';
 import '../../providers/locale_provider.dart';
-import '../../widgets/explore_lesotho_logo.dart';
 import '../auth/auth_wrapper.dart';
 import '../auth/login_screen.dart';
 
@@ -54,7 +53,7 @@ class WelcomeStartScreen extends StatelessWidget {
         child: Column(
           children: [
             const Spacer(),
-            const ExploreLesothoLogo(size: 118),
+            const _BrandMark(size: 118),
             const SizedBox(height: 28),
             const Text(
               'Explore Lesotho',
@@ -116,7 +115,7 @@ class LanguageOnboardingScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 28),
-                const ExploreLesothoLogo(size: 76),
+                const _BrandMark(size: 76),
                 const SizedBox(height: 34),
                 const Text(
                   'Choose your language',
@@ -202,7 +201,7 @@ class _TermsOnboardingScreenState extends State<TermsOnboardingScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 28),
-            const ExploreLesothoLogo(size: 76),
+            const _BrandMark(size: 76),
             const SizedBox(height: 28),
             const Text(
               'Terms & Privacy',
@@ -308,7 +307,7 @@ class _BrandedLoadingScreen extends StatelessWidget {
     return const Scaffold(
       body: _OnboardingScaffold(
         child: Center(
-          child: ExploreLesothoLogo(size: 96),
+          child: _BrandMark(size: 96),
         ),
       ),
     );
@@ -341,6 +340,30 @@ class _OnboardingScaffold extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 28),
           child: child,
         ),
+      ),
+    );
+  }
+}
+
+class _BrandMark extends StatelessWidget {
+  const _BrandMark({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+      ),
+      child: Icon(
+        Icons.explore_rounded,
+        color: Colors.white,
+        size: size * 0.5,
       ),
     );
   }

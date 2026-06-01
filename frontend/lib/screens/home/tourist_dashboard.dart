@@ -28,6 +28,20 @@ import 'culture_vendor_detail_screen.dart';
 import 'listing_detail_screen.dart';
 import 'wishlist_screen.dart';
 
+class _HomeHeroSlide {
+  const _HomeHeroSlide({
+    required this.asset,
+    required this.title,
+    required this.subtitle,
+    required this.tag,
+  });
+
+  final String asset;
+  final String title;
+  final String subtitle;
+  final String tag;
+}
+
 class TouristDashboard extends StatefulWidget {
   const TouristDashboard({super.key});
 
@@ -39,6 +53,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
   int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _dashboardScrollController = ScrollController();
+  final PageController _heroPageController = PageController();
   final MlService _mlService = MlService();
   Map<String, dynamic>? _aiDashboard;
   List<Map<String, dynamic>> _aiRecommendations = [];
@@ -46,6 +61,32 @@ class _TouristDashboardState extends State<TouristDashboard> {
   bool _aiLoading = false;
   bool _showLegacyAiSections = false;
   Timer? _searchDebounce;
+  Timer? _heroTimer;
+  int _heroSlideIndex = 0;
+
+  static const List<_HomeHeroSlide> _homeHeroSlides = [
+    _HomeHeroSlide(
+      asset: 'assets/images/tourism_seed/thaba_bosiu_1.jpg',
+      title: 'Explore the Kingdom in the Sky',
+      subtitle:
+          'Discover heritage, culture, adventure, and trusted places to stay.',
+      tag: 'Heritage',
+    ),
+    _HomeHeroSlide(
+      asset: 'assets/images/tourism_seed/katse_dam_1.jpg',
+      title: 'Plan Smarter Lesotho Journeys',
+      subtitle:
+          'Compare tours, accommodation, transport, food, and events in one place.',
+      tag: 'Travel Planning',
+    ),
+    _HomeHeroSlide(
+      asset: 'assets/images/tourism_seed/afriski_1.jpg',
+      title: 'Book Real Local Experiences',
+      subtitle:
+          'Connect tourists with verified vendors and tourism facilities.',
+      tag: 'Book & Discover',
+    ),
+  ];
 
   final List<String> _categories = [
     'All',
@@ -64,6 +105,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+    _startHeroSlider();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<ListingProvider>(context, listen: false).loadListings();
@@ -97,13 +139,27 @@ class _TouristDashboardState extends State<TouristDashboard> {
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchDebounce?.cancel();
+    _heroTimer?.cancel();
     _searchController.dispose();
     _dashboardScrollController.dispose();
+    _heroPageController.dispose();
     final listener = _connectivityListener;
     if (listener != null) {
       context.read<ConnectivityService>().removeListener(listener);
     }
     super.dispose();
+  }
+
+  void _startHeroSlider() {
+    _heroTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted || !_heroPageController.hasClients) return;
+      final nextIndex = (_heroSlideIndex + 1) % _homeHeroSlides.length;
+      _heroPageController.animateToPage(
+        nextIndex,
+        duration: const Duration(milliseconds: 650),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   void _onSearchChanged() {
@@ -607,6 +663,26 @@ class _TouristDashboardState extends State<TouristDashboard> {
                         fontSize: fontSize,
                         padding: padding,
                       ),
+                      if (isOverview)
+                        Padding(
+                          padding: padding.copyWith(top: 0, bottom: 12),
+                          child: _buildHomeExperienceHero(
+                            context: context,
+                            locale: locale,
+                            isMobile: isMobile,
+                            fontSize: fontSize,
+                          ),
+                        ),
+                      if (isOverview)
+                        Padding(
+                          padding: padding.copyWith(top: 0, bottom: 12),
+                          child: _buildAboutMissionVision(
+                            context: context,
+                            locale: locale,
+                            isMobile: isMobile,
+                            fontSize: fontSize,
+                          ),
+                        ),
                       Padding(
                         padding: padding.copyWith(top: 0, bottom: 12),
                         child: TextField(
@@ -655,15 +731,16 @@ class _TouristDashboardState extends State<TouristDashboard> {
                           ),
                         ),
                       ),
-                      Padding(
-                        padding: padding.copyWith(top: 0, bottom: 12),
-                        child: _buildDiscoverHero(
-                          locale: locale,
-                          isOverview: isOverview,
-                          listingCount: activeResultCount,
-                          fontSize: fontSize,
+                      if (!isOverview)
+                        Padding(
+                          padding: padding.copyWith(top: 0, bottom: 12),
+                          child: _buildDiscoverHero(
+                            locale: locale,
+                            isOverview: isOverview,
+                            listingCount: activeResultCount,
+                            fontSize: fontSize,
+                          ),
                         ),
-                      ),
                       Padding(
                         padding: padding.copyWith(top: 0, bottom: 10),
                         child: _buildSectionHeading(
@@ -1879,6 +1956,358 @@ class _TouristDashboardState extends State<TouristDashboard> {
     );
   }
 
+  Widget _buildHomeExperienceHero({
+    required BuildContext context,
+    required LocaleProvider locale,
+    required bool isMobile,
+    required double fontSize,
+  }) {
+    final heroHeight = isMobile ? 430.0 : 520.0;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(isMobile ? 18 : 24),
+      child: SizedBox(
+        height: heroHeight,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            PageView.builder(
+              controller: _heroPageController,
+              itemCount: _homeHeroSlides.length,
+              onPageChanged: (index) {
+                setState(() => _heroSlideIndex = index);
+              },
+              itemBuilder: (context, index) {
+                final slide = _homeHeroSlides[index];
+                return Image.asset(
+                  slide.asset,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: const Color(0xFF0F3D3E),
+                  ),
+                );
+              },
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.12),
+                    const Color(0xFF062B31).withValues(alpha: 0.84),
+                  ],
+                ),
+              ),
+            ),
+            _buildHeroParticleOverlay(),
+            Positioned(
+              left: isMobile ? 18 : 34,
+              right: isMobile ? 18 : 34,
+              top: isMobile ? 18 : 28,
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _heroBadge(Icons.verified_rounded, 'LTDC-aligned tourism'),
+                  _heroBadge(Icons.public_rounded, 'Web and mobile ready'),
+                  _heroBadge(Icons.smart_toy_rounded, 'Scikit AI insights'),
+                ],
+              ),
+            ),
+            Positioned(
+              left: isMobile ? 18 : 44,
+              right: isMobile ? 18 : 44,
+              bottom: isMobile ? 28 : 42,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                child: Column(
+                  key: ValueKey(_heroSlideIndex),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _homeHeroSlides[_heroSlideIndex].tag.toUpperCase(),
+                      style: TextStyle(
+                        color: const Color(0xFFBDE05A),
+                        fontSize: isMobile ? 12 : 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 860),
+                      child: Text(
+                        _homeHeroSlides[_heroSlideIndex].title,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isMobile ? 34 : 58,
+                          fontWeight: FontWeight.w900,
+                          height: 1.02,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 690),
+                      child: Text(
+                        _homeHeroSlides[_heroSlideIndex].subtitle,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: isMobile ? 15 : 19,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 10,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: () => Navigator.pushNamed(
+                            context,
+                            '/register',
+                          ),
+                          icon: const Icon(Icons.person_add_alt_1_rounded),
+                          label: const Text('Register here'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFFBDE05A),
+                            foregroundColor: const Color(0xFF082E33),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 16 : 22,
+                              vertical: 14,
+                            ),
+                            textStyle: TextStyle(
+                              fontSize: isMobile ? 14 : 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.pushNamed(
+                            context,
+                            '/login',
+                          ),
+                          icon: const Icon(Icons.login_rounded),
+                          label: const Text('Login here'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.8),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 16 : 22,
+                              vertical: 14,
+                            ),
+                            textStyle: TextStyle(
+                              fontSize: isMobile ? 14 : 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              right: isMobile ? 16 : 28,
+              bottom: isMobile ? 16 : 24,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(_homeHeroSlides.length, (index) {
+                  final active = index == _heroSlideIndex;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    width: active ? 28 : 9,
+                    height: 9,
+                    margin: const EdgeInsets.only(left: 6),
+                    decoration: BoxDecoration(
+                      color: active
+                          ? const Color(0xFFBDE05A)
+                          : Colors.white.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroParticleOverlay() {
+    return IgnorePointer(
+      child: Stack(
+        children: List.generate(28, (index) {
+          final left = ((index * 41) % 100) / 100;
+          final top = ((index * 29) % 100) / 100;
+          final size = 4.0 + (index % 3) * 2.0;
+          return Positioned(
+            left: left * MediaQuery.sizeOf(context).width,
+            top: top * 460,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: Duration(milliseconds: 1800 + (index % 7) * 300),
+              curve: Curves.easeInOut,
+              builder: (context, value, child) {
+                return Transform.translate(
+                  offset: Offset(0, value * 26),
+                  child: Opacity(
+                    opacity: 0.25 + (index % 4) * 0.08,
+                    child: child,
+                  ),
+                );
+              },
+              child: Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF65D6E8),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _heroBadge(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: const Color(0xFFBDE05A)),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAboutMissionVision({
+    required BuildContext context,
+    required LocaleProvider locale,
+    required bool isMobile,
+    required double fontSize,
+  }) {
+    final cards = [
+      (
+        Icons.travel_explore_rounded,
+        'About Explore Lesotho',
+        'A centralized tourism platform where visitors discover attractions, compare facilities, book trusted services, and connect with verified local vendors.',
+      ),
+      (
+        Icons.flag_rounded,
+        'Mission',
+        'To make Lesotho tourism easier, safer, and more inclusive by bringing listings, bookings, reviews, events, and AI travel guidance into one digital platform.',
+      ),
+      (
+        Icons.visibility_rounded,
+        'Vision',
+        'To become the trusted digital gateway for Lesotho tourism, helping LTDC, vendors, and communities grow through transparent data and sustainable travel.',
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth > 900 ? 3 : 1;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: cards.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            mainAxisExtent: isMobile ? 184 : 210,
+          ),
+          itemBuilder: (context, index) {
+            final card = cards[index];
+            return Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.94),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: ColorPalette.primaryGreen.withValues(alpha: 0.16),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: ColorPalette.primaryGreen.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      card.$1,
+                      color: ColorPalette.darkGreen,
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    card.$2,
+                    style: TextStyle(
+                      color: ColorPalette.textPrimary,
+                      fontSize: fontSize + 1,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: Text(
+                      card.$3,
+                      style: TextStyle(
+                        color: ColorPalette.textSecondary,
+                        fontSize: isMobile ? 12.5 : 13.5,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildDiscoverHero({
     required LocaleProvider locale,
     required bool isOverview,
@@ -2709,5 +3138,4 @@ class _TouristDashboardState extends State<TouristDashboard> {
       ),
     );
   }
-
 }
