@@ -7,11 +7,37 @@ import pandas as pd
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from pdf_verifier import PDFVerifier
-from recommender_engine import RecommenderEngine
-from review_sentiment import ReviewSentimentAnalyzer
-from user_behavior_model import UserBehaviorModel
-from vendor_verifier import VendorVerifier
+import_warnings = []
+
+try:
+    from pdf_verifier import PDFVerifier
+except Exception as error:
+    PDFVerifier = None
+    import_warnings.append(f"pdf verifier import failed: {error}")
+
+try:
+    from recommender_engine import RecommenderEngine
+except Exception as error:
+    RecommenderEngine = None
+    import_warnings.append(f"recommender engine import failed: {error}")
+
+try:
+    from review_sentiment import ReviewSentimentAnalyzer
+except Exception as error:
+    ReviewSentimentAnalyzer = None
+    import_warnings.append(f"review sentiment import failed: {error}")
+
+try:
+    from user_behavior_model import UserBehaviorModel
+except Exception as error:
+    UserBehaviorModel = None
+    import_warnings.append(f"user behavior model import failed: {error}")
+
+try:
+    from vendor_verifier import VendorVerifier
+except Exception as error:
+    VendorVerifier = None
+    import_warnings.append(f"vendor verifier import failed: {error}")
 
 
 def notify_admin(name, result):
@@ -30,6 +56,7 @@ ML_SERVICE_HOST = os.getenv("ML_SERVICE_HOST", "0.0.0.0")
 ML_SERVICE_PORT = int(os.getenv("PORT", os.getenv("ML_SERVICE_PORT", "5001")))
 
 startup_warnings = []
+startup_warnings.extend(import_warnings)
 
 
 def _warn(label, error):
@@ -87,11 +114,27 @@ def _resolve_existing_path(path_or_paths):
     return None
 
 
-vendor_model = _safe_construct("vendor model", VendorVerifier)
-user_model = UserBehaviorModel()
-recommender_model = _safe_construct("recommender engine", RecommenderEngine)
-review_analyzer = ReviewSentimentAnalyzer()
-pdf_verifier = PDFVerifier()
+vendor_model = (
+    _safe_construct("vendor model", VendorVerifier) if VendorVerifier is not None else None
+)
+user_model = (
+    _safe_construct("user behavior model", UserBehaviorModel)
+    if UserBehaviorModel is not None
+    else None
+)
+recommender_model = (
+    _safe_construct("recommender engine", RecommenderEngine)
+    if RecommenderEngine is not None
+    else None
+)
+review_analyzer = (
+    _safe_construct("review sentiment analyzer", ReviewSentimentAnalyzer)
+    if ReviewSentimentAnalyzer is not None
+    else None
+)
+pdf_verifier = (
+    _safe_construct("pdf verifier", PDFVerifier) if PDFVerifier is not None else None
+)
 demand_bundle = _safe_joblib_load("models/demand_model.pkl", "demand model")
 demand_model = demand_bundle["model"] if isinstance(demand_bundle, dict) else None
 demand_scaler = demand_bundle["scaler"] if isinstance(demand_bundle, dict) else None
@@ -967,7 +1010,9 @@ def health():
                 "demand_model": demand_model is not None,
                 "recommender_model": recommender_model is not None,
                 "ltdc_knowledge_model": ltdc_model is not None,
-                "review_sentiment_model": review_analyzer.is_ready(),
+                "review_sentiment_model": (
+                    review_analyzer.is_ready() if review_analyzer is not None else False
+                ),
             },
         }
     )
