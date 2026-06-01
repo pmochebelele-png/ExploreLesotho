@@ -997,24 +997,30 @@ def ltdc_knowledge():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+def _health_payload():
+    return {
+        "status": "running",
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "warnings": startup_warnings,
+        "models": {
+            "vendor_model": vendor_model is not None,
+            "fraud_model": user_model is not None,
+            "demand_model": demand_model is not None,
+            "recommender_model": recommender_model is not None,
+            "ltdc_knowledge_model": ltdc_model is not None,
+            "review_sentiment_model": (
+                review_analyzer.is_ready() if review_analyzer is not None else False
+            ),
+        },
+    }
+
+
+@app.route("/", methods=["GET"])
+@app.route("/health", methods=["GET"])
 @app.route("/api/ml/health", methods=["GET"])
 def health():
     return jsonify(
-        {
-            "status": "running",
-            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "warnings": startup_warnings,
-            "models": {
-                "vendor_model": vendor_model is not None,
-                "fraud_model": user_model is not None,
-                "demand_model": demand_model is not None,
-                "recommender_model": recommender_model is not None,
-                "ltdc_knowledge_model": ltdc_model is not None,
-                "review_sentiment_model": (
-                    review_analyzer.is_ready() if review_analyzer is not None else False
-                ),
-            },
-        }
+        _health_payload()
     )
 
 
