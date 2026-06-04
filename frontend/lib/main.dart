@@ -25,6 +25,7 @@ import 'screens/chat/chat_list_screen.dart';
 import 'screens/events/my_event_tickets_screen.dart';
 import 'screens/home/tourist_dashboard.dart';
 import 'screens/onboarding/onboarding_gate.dart';
+import 'screens/public/public_landing_screen.dart';
 import 'screens/unauthorized_screen.dart';
 import 'screens/vendor/vendor_dashboard.dart';
 import 'services/connectivity_service.dart';
@@ -217,6 +218,7 @@ class MyApp extends StatelessWidget {
             home: const OnboardingGate(),
             routes: {
               '/onboarding': (context) => const WelcomeStartScreen(),
+              '/public-home': (context) => const PublicLandingScreen(),
               '/login': (context) => const LoginScreen(),
               '/forgot-password': (context) => const ForgotPasswordScreen(),
               '/register': (context) => const RegisterScreen(),

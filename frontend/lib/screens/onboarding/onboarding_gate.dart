@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/themes/color_palette.dart';
 import '../../providers/locale_provider.dart';
 import '../auth/auth_wrapper.dart';
-import '../auth/login_screen.dart';
+import '../public/public_landing_screen.dart';
 
 class OnboardingGate extends StatefulWidget {
   const OnboardingGate({super.key});
@@ -188,7 +188,7 @@ class _TermsOnboardingScreenState extends State<TermsOnboardingScreen> {
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(builder: (_) => const PublicLandingScreen()),
       (route) => false,
     );
   }
@@ -287,7 +287,7 @@ class _TermsOnboardingScreenState extends State<TermsOnboardingScreen> {
             ),
             const SizedBox(height: 10),
             _PrimaryOnboardingButton(
-              label: 'Continue to Login',
+              label: 'Continue',
               icon: Icons.login,
               onPressed: _accepted ? _finish : null,
             ),

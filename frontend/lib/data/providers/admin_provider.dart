@@ -1,6 +1,7 @@
 // lib/data/providers/admin_provider.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../models/user.dart';
 import '../models/vendor.dart';
@@ -14,20 +15,21 @@ class AdminProvider extends ChangeNotifier {
   List<Vendor> _vendors = [];
   List<Review> _reviews = [];
   Map<String, dynamic> _liveStats = {};
+  Map<String, dynamic> _activityInsights = {};
 
   bool get isLoading => _isLoading;
   
   List<User> get users {
-    print('📊 users getter called - returning ${_users.length} users');
     return _users;
   }
   
   List<Vendor> get vendors {
-    print('📊 vendors getter called - returning ${_vendors.length} vendors');
     return List<Vendor>.from(_vendors);
   }
   
   List<Review> get reviews => _reviews;
+  Map<String, dynamic> get activityInsights =>
+      Map<String, dynamic>.from(_activityInsights);
 
   AdminProvider();
 
@@ -41,7 +43,9 @@ class AdminProvider extends ChangeNotifier {
       await fetchUsers();
       await fetchPlatformStats();
       await fetchVendors();
+      await _mergeLocalPendingVendors();
       await fetchReviewsSafe();
+      await fetchActivityInsights();
     } catch (e) {
       debugPrint("❌ Admin Sync Error: $e");
     } finally {
@@ -51,12 +55,18 @@ class AdminProvider extends ChangeNotifier {
   }
 
   Map<String, dynamic> getPlatformStats() {
+    final visibleVendorCount = _vendors.length;
+    final serverVendorCount = _liveStats['totalVendors'] ?? 0;
+    final pendingVendorCount =
+        _vendors.where((vendor) => !vendor.isVerified).length;
     return {
       'totalUsers': _liveStats['totalUsers'] ?? _users.length,
-      'totalVendors': _liveStats['totalVendors'] ?? _vendors.length,
+      'totalVendors': serverVendorCount > visibleVendorCount
+          ? serverVendorCount
+          : visibleVendorCount,
       'totalBookings': _liveStats['totalBookings'] ?? 0,
       'totalRevenue': _liveStats['totalRevenue'] ?? 0.0,
-      'pendingVendors': _liveStats['pendingVendors'] ?? _vendors.where((vendor) => !vendor.isVerified).length,
+      'pendingVendors': pendingVendorCount,
       'pendingReviews': 0,
     };
   }
@@ -140,6 +150,37 @@ class AdminProvider extends ChangeNotifier {
     print('📢 notifyListeners called - vendors count: ${_vendors.length}');
   }
 
+  Future<void> _mergeLocalPendingVendors() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getStringList('local_pending_vendors') ?? const [];
+    if (stored.isEmpty) return;
+
+    final existingEmails = _vendors
+        .map((vendor) => vendor.businessEmail?.trim().toLowerCase())
+        .whereType<String>()
+        .toSet();
+    final localVendors = <Vendor>[];
+
+    for (final item in stored) {
+      try {
+        final decoded = json.decode(item);
+        if (decoded is! Map) continue;
+        final data = decoded.map(
+          (key, value) => MapEntry(key.toString(), value),
+        );
+        final email = data['business_email']?.toString().trim().toLowerCase();
+        if (email != null && existingEmails.contains(email)) continue;
+        localVendors.add(Vendor.fromJson(data));
+      } catch (e) {
+        debugPrint('Unable to read local pending vendor: $e');
+      }
+    }
+
+    if (localVendors.isNotEmpty) {
+      _vendors = [...localVendors, ..._vendors];
+    }
+  }
+
   Future<void> fetchReviews() async {
     try {
       print('🔄 FETCHING REVIEWS...');
@@ -208,6 +249,48 @@ class AdminProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint("❌ fetchPlatformStats error: $e");
     }
+    notifyListeners();
+  }
+
+  Future<void> fetchActivityInsights() async {
+    final pendingVendors = _vendors.where((vendor) => !vendor.isVerified).length;
+    final pendingVendorList =
+        _vendors.where((vendor) => !vendor.isVerified).toList()
+          ..sort((a, b) => b.joinedAt.compareTo(a.joinedAt));
+    final recentPendingVendor =
+        pendingVendorList.isNotEmpty ? pendingVendorList.first : null;
+    final approvedVendors = _vendors.where((vendor) => vendor.isVerified).length;
+    final rejectedVendors =
+        _vendors.where((vendor) => vendor.status == 'rejected').length;
+    final usersByRole = <String, int>{};
+    for (final user in _users) {
+      usersByRole[user.role] = (usersByRole[user.role] ?? 0) + 1;
+    }
+
+    _activityInsights = {
+      'usersByRole': usersByRole,
+      'vendors': {
+        'total': _vendors.length,
+        'approved': approvedVendors,
+        'pending': pendingVendors,
+        'rejected': rejectedVendors,
+      },
+      'bookingsByStatus': {
+        'total': _liveStats['totalBookings'] ?? 0,
+        'active': _liveStats['activeBookings'] ?? 0,
+        'cancelled': _liveStats['cancelledBookings'] ?? 0,
+      },
+      'recommendations': [
+        if (recentPendingVendor != null)
+          'Recently joined vendor: ${recentPendingVendor.businessName} is pending approval.',
+        if (pendingVendors > 0)
+          '$pendingVendors vendor account(s) need admin approval.',
+        if ((_liveStats['totalBookings'] ?? 0) > 0)
+          'Review booking activity and vendor response times regularly.',
+        if (_reviews.isNotEmpty)
+          'Use recent reviews to identify service quality trends.',
+      ],
+    };
     notifyListeners();
   }
 
@@ -334,7 +417,9 @@ class AdminProvider extends ChangeNotifier {
         final data = json.decode(res.body);
         if (data['success'] == true) {
           print('✅ Vendor approved successfully');
-          refresh();
+          await fetchVendors();
+          await fetchPlatformStats();
+          await fetchActivityInsights();
           return true;
         }
       }
@@ -353,7 +438,9 @@ class AdminProvider extends ChangeNotifier {
         final data = json.decode(res.body);
         if (data['success'] == true) {
           print('✅ Vendor rejected successfully');
-          refresh();
+          await fetchVendors();
+          await fetchPlatformStats();
+          await fetchActivityInsights();
           return true;
         }
       }
@@ -404,3 +491,5 @@ class AdminProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
+
+

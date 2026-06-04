@@ -3,6 +3,21 @@ const crypto = require('crypto');
 
 const providerName = () => configuredProvider || 'not_configured';
 
+function providerErrorMessage(status, body) {
+    const detail =
+        body.message ||
+        body.error ||
+        body.output_ResponseDesc ||
+        body.output_ResponseCode ||
+        body.output_Error ||
+        body.output_error ||
+        body.raw;
+    if (!detail) {
+        return `Provider returned ${status}`;
+    }
+    return `Provider returned ${status}: ${String(detail).slice(0, 500)}`;
+}
+
 async function postJson(url, payload, headers = {}) {
     const response = await fetch(url, {
         method: 'POST',
@@ -23,7 +38,8 @@ async function postJson(url, payload, headers = {}) {
     }
 
     if (!response.ok) {
-        const message = body.message || body.error || `Provider returned ${response.status}`;
+        console.error('Payment provider request failed', { url, status: response.status, body });
+        const message = providerErrorMessage(response.status, body);
         throw new Error(message);
     }
 
@@ -48,7 +64,8 @@ async function getJson(url, headers = {}) {
     }
 
     if (!response.ok) {
-        const message = body.message || body.error || `Provider returned ${response.status}`;
+        console.error('Payment provider request failed', { url, status: response.status, body });
+        const message = providerErrorMessage(response.status, body);
         throw new Error(message);
     }
 

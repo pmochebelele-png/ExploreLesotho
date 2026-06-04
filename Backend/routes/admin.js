@@ -176,6 +176,106 @@ router.get('/stats', authenticateToken, async (req, res) => {
     }
 });
 
+router.get('/activity-insights', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [statusRows] = await mysqlPool.execute(`
+            SELECT status, COUNT(*) AS count, IFNULL(SUM(total_price), 0) AS revenue
+            FROM bookings
+            GROUP BY status
+        `);
+
+        const [recentBookingRows] = await mysqlPool.execute(`
+            SELECT
+                b.booking_id,
+                b.booking_reference,
+                b.status,
+                b.total_price,
+                b.created_at,
+                l.title AS listing_title,
+                u.full_name AS tourist_name,
+                v.business_name AS vendor_name
+            FROM bookings b
+            LEFT JOIN listings l ON b.listing_id = l.listing_id
+            LEFT JOIN users u ON b.tourist_id = u.user_id
+            LEFT JOIN vendors v ON l.vendor_id = v.vendor_id
+            ORDER BY b.created_at DESC
+            LIMIT 10
+        `);
+
+        const [vendorRows] = await mysqlPool.execute(`
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN verified = 1 AND status = 'active' THEN 1 ELSE 0 END) AS approved,
+                SUM(CASE WHEN verified = 0 OR status = 'pending' THEN 1 ELSE 0 END) AS pending,
+                SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) AS rejected
+            FROM vendors
+        `);
+
+        const [userRows] = await mysqlPool.execute(`
+            SELECT role, COUNT(*) AS count
+            FROM users
+            GROUP BY role
+        `);
+
+        const db = getMongoDb();
+        const recentReviews = db
+            ? await db.collection('reviews')
+                .find({})
+                .sort({ createdAt: -1, created_at: -1 })
+                .limit(5)
+                .toArray()
+            : [];
+
+        const bookingByStatus = {};
+        for (const row of statusRows) {
+            bookingByStatus[row.status || 'unknown'] = {
+                count: Number(row.count || 0),
+                revenue: Number(row.revenue || 0),
+            };
+        }
+
+        const usersByRole = {};
+        for (const row of userRows) {
+            usersByRole[row.role || 'unknown'] = Number(row.count || 0);
+        }
+
+        const vendors = vendorRows[0] || {};
+        const recommendations = [];
+        if (Number(vendors.pending || 0) > 0) {
+            recommendations.push(`${vendors.pending} vendor account(s) need admin approval.`);
+        }
+        if ((bookingByStatus.pending?.count || 0) > 0) {
+            recommendations.push(`${bookingByStatus.pending.count} booking request(s) are waiting for vendor confirmation.`);
+        }
+        if ((bookingByStatus.cancelled?.count || 0) > 0) {
+            recommendations.push('Review cancelled bookings for service or availability issues.');
+        }
+        if (recentReviews.length > 0) {
+            recommendations.push('Use recent reviews to identify service quality trends.');
+        }
+
+        res.json({
+            success: true,
+            generatedAt: new Date().toISOString(),
+            insights: {
+                usersByRole,
+                vendors: {
+                    total: Number(vendors.total || 0),
+                    approved: Number(vendors.approved || 0),
+                    pending: Number(vendors.pending || 0),
+                    rejected: Number(vendors.rejected || 0),
+                },
+                bookingsByStatus: bookingByStatus,
+                recentBookings: recentBookingRows,
+                recentReviews: recentReviews.map(normalizeReview),
+                recommendations,
+            },
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 router.get('/users/all', authenticateToken, async (req, res) => {
     try {
         const [users] = await mysqlPool.execute(`

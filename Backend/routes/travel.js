@@ -1,4 +1,5 @@
 const express = require('express');
+const googlePlacesService = require('../services/googlePlacesService');
 
 const router = express.Router();
 
@@ -97,6 +98,30 @@ router.get('/facility-hierarchy', (_req, res) => {
         success: true,
         hierarchy: FACILITY_HIERARCHY,
     });
+});
+
+router.get('/google-hotels', async (req, res) => {
+    try {
+        const result = await googlePlacesService.fetchMaseruHotels({
+            query: req.query.query?.toString() || 'hotels in Maseru Lesotho',
+            limit: req.query.limit,
+        });
+        res.json({
+            success: true,
+            configured: result.configured,
+            source: result.source,
+            listings: result.listings,
+        });
+    } catch (error) {
+        console.error('Google hotel lookup failed:', error);
+        res.json({
+            success: true,
+            configured: false,
+            source: 'fallback',
+            warning: error.message,
+            listings: googlePlacesService.fallbackListings(),
+        });
+    }
 });
 
 module.exports = router;

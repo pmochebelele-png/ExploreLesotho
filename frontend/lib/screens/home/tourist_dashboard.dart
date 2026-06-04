@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/themes/color_palette.dart';
@@ -13,7 +11,7 @@ import '../../providers/notification_provider.dart';
 import '../../providers/test_chat_provider.dart';
 import '../../services/connectivity_service.dart';
 import '../../utils/responsive_layout.dart';
-import '../../widgets/culture_vendor_card.dart';
+import '../../widgets/dashboard_navigation_drawer.dart';
 import '../../widgets/listing_card.dart';
 import '../../widgets/mountain_background.dart';
 import '../../widgets/offline_indicator.dart';
@@ -24,7 +22,8 @@ import '../bookings/my_bookings_screen.dart';
 import '../chat/chat_list_screen.dart';
 import '../events/events_screen.dart';
 import '../notifications/wishlist_notifications_screen.dart';
-import 'culture_vendor_detail_screen.dart';
+import '../public/public_landing_screen.dart';
+import '../unauthorized_screen.dart';
 import 'listing_detail_screen.dart';
 import 'wishlist_screen.dart';
 
@@ -50,6 +49,7 @@ class TouristDashboard extends StatefulWidget {
 }
 
 class _TouristDashboardState extends State<TouristDashboard> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _dashboardScrollController = ScrollController();
@@ -59,6 +59,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
   List<Map<String, dynamic>> _aiRecommendations = [];
   List<Map<String, dynamic>> _aiHotspots = [];
   bool _aiLoading = false;
+<<<<<<< Updated upstream
   bool _showLegacyAiSections = false;
   Timer? _searchDebounce;
   Timer? _heroTimer;
@@ -87,6 +88,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
       tag: 'Book & Discover',
     ),
   ];
+=======
+>>>>>>> Stashed changes
 
   final List<String> _categories = [
     'All',
@@ -95,8 +98,6 @@ class _TouristDashboardState extends State<TouristDashboard> {
     'Experience',
     'Culture',
     'Adventure',
-    'Food',
-    'Transport',
     'Upcoming Events',
   ];
   VoidCallback? _connectivityListener;
@@ -110,19 +111,10 @@ class _TouristDashboardState extends State<TouristDashboard> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<ListingProvider>(context, listen: false).loadListings();
       Provider.of<CultureProvider>(context, listen: false).loadInitial();
+      Provider.of<BookingProvider>(context, listen: false).refresh();
       Provider.of<EventProvider>(context, listen: false).fetchUpcomingEvents();
-
-      Future.delayed(const Duration(milliseconds: 350), () {
-        if (!mounted) return;
-        Provider.of<BookingProvider>(context, listen: false).refresh();
-        _loadAiContent();
-      });
-
-      Future.delayed(const Duration(milliseconds: 900), () {
-        if (!mounted) return;
-        Provider.of<TestChatProvider>(context, listen: false)
-            .loadConversations();
-      });
+      Provider.of<TestChatProvider>(context, listen: false).loadConversations();
+      _loadAiContent();
     });
 
     final connectivity = context.read<ConnectivityService>();
@@ -138,8 +130,11 @@ class _TouristDashboardState extends State<TouristDashboard> {
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
+<<<<<<< Updated upstream
     _searchDebounce?.cancel();
     _heroTimer?.cancel();
+=======
+>>>>>>> Stashed changes
     _searchController.dispose();
     _dashboardScrollController.dispose();
     _heroPageController.dispose();
@@ -163,18 +158,14 @@ class _TouristDashboardState extends State<TouristDashboard> {
   }
 
   void _onSearchChanged() {
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 260), () {
-      if (!mounted) return;
-      final listingProvider =
-          Provider.of<ListingProvider>(context, listen: false);
-      final cultureProvider =
-          Provider.of<CultureProvider>(context, listen: false);
-      listingProvider.search(_searchController.text);
-      if (listingProvider.selectedCategory == 'Culture') {
-        cultureProvider.loadVendors(search: _searchController.text);
-      }
-    });
+    final listingProvider =
+        Provider.of<ListingProvider>(context, listen: false);
+    final cultureProvider =
+        Provider.of<CultureProvider>(context, listen: false);
+    listingProvider.search(_searchController.text);
+    if (listingProvider.selectedCategory == 'Culture') {
+      cultureProvider.loadVendors(search: _searchController.text);
+    }
   }
 
   Future<void> _loadAiContent() async {
@@ -247,6 +238,31 @@ class _TouristDashboardState extends State<TouristDashboard> {
     final cultureProvider =
         Provider.of<CultureProvider>(context, listen: false);
     final locale = Provider.of<LocaleProvider>(context, listen: false);
+    final hotspotName = hotspot['name']?.toString().trim() ?? '';
+
+    if (listingProvider.allListings.isEmpty) {
+      await listingProvider.loadListings();
+    }
+
+    final normalizedHotspot = _normalizeDiscoveryName(hotspotName);
+    if (normalizedHotspot.isNotEmpty) {
+      for (final listing in listingProvider.allListings) {
+        final normalizedTitle = _normalizeDiscoveryName(listing.title);
+        if (normalizedTitle.isNotEmpty &&
+            (normalizedTitle == normalizedHotspot ||
+            normalizedTitle.contains(normalizedHotspot) ||
+            normalizedHotspot.contains(normalizedTitle))) {
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ListingDetailScreen(listingId: listing.id),
+            ),
+          );
+          return;
+        }
+      }
+    }
 
     final mappedCategory = _mapMlCategoryToDashboard(
       hotspot['category']?.toString(),
@@ -271,6 +287,10 @@ class _TouristDashboardState extends State<TouristDashboard> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  String _normalizeDiscoveryName(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
   }
 
   Future<void> _openRecommendationDiscovery(Map<String, dynamic> item) async {
@@ -443,7 +463,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     if (!mounted) return;
                     Navigator.pushAndRemoveUntil(
                       this.context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const PublicLandingScreen(),
+                      ),
                       (route) => false,
                     );
                   },
@@ -510,15 +532,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
     const translations = {
       'All': ('All Types', 'Mefuta Eohle'),
       'Crafts': ('Crafts', 'Mesebetsi ea Matsoho'),
-      'Music': ('Music', 'Mmino'),
-      'Dance': ('Dance', 'Motjeko'),
-      'Art': ('Art', 'Bonono'),
-      'Food Heritage': ('Food Heritage', 'Lefa la Lijo'),
-      'Storytelling': ('Storytelling', 'Pale tsa Setso'),
       'History': ('History', 'Nalane'),
       'Traditional Wear': ('Traditional Wear', 'Liaparo tsa Setso'),
-      'Architecture': ('Architecture', 'Meaho ea Setso'),
-      'Spiritual Heritage': ('Spiritual Heritage', 'Lefa la Moea'),
       'Festival': ('Festival', 'Mokete'),
     };
     final pair = translations[type] ?? (type, type);
@@ -529,24 +544,10 @@ class _TouristDashboardState extends State<TouristDashboard> {
     switch (type) {
       case 'Crafts':
         return Icons.handyman;
-      case 'Music':
-        return Icons.music_note;
-      case 'Dance':
-        return Icons.nightlife;
-      case 'Art':
-        return Icons.palette;
-      case 'Food Heritage':
-        return Icons.restaurant;
-      case 'Storytelling':
-        return Icons.menu_book;
       case 'History':
         return Icons.history_edu;
       case 'Traditional Wear':
         return Icons.checkroom;
-      case 'Architecture':
-        return Icons.architecture;
-      case 'Spiritual Heritage':
-        return Icons.temple_buddhist;
       case 'Festival':
         return Icons.celebration;
       default:
@@ -558,24 +559,10 @@ class _TouristDashboardState extends State<TouristDashboard> {
     switch (type) {
       case 'Crafts':
         return Colors.brown;
-      case 'Music':
-        return Colors.deepPurple;
-      case 'Dance':
-        return Colors.pink;
-      case 'Art':
-        return Colors.indigo;
-      case 'Food Heritage':
-        return Colors.deepOrange;
-      case 'Storytelling':
-        return Colors.blueGrey;
       case 'History':
         return Colors.teal;
       case 'Traditional Wear':
         return Colors.cyan;
-      case 'Architecture':
-        return Colors.blue;
-      case 'Spiritual Heritage':
-        return Colors.green;
       case 'Festival':
         return Colors.orange;
       default:
@@ -604,13 +591,25 @@ class _TouristDashboardState extends State<TouristDashboard> {
     final fontSize = ResponsiveLayout.getFontSize(context);
     final padding = ResponsiveLayout.getPadding(context);
     final gridCrossAxisCount = ResponsiveLayout.getGridCrossAxisCount(context);
+
+    if (!authProvider.isAuthenticated) {
+      return const PublicLandingScreen();
+    }
+
+    if (!authProvider.isTourist && !authProvider.isAdmin) {
+      return const UnauthorizedScreen();
+    }
+
     final isOverview = listingProvider.selectedCategory == 'All';
     final isCultureView = listingProvider.selectedCategory == 'Culture';
     final isEventsView = listingProvider.selectedCategory == 'Upcoming Events';
+    final cultureMarketplaceItems = isCultureView
+        ? _cultureMarketplaceItems(cultureProvider.selectedSubcategorySlug)
+        : const <_CultureMarketplaceItem>[];
     final activeOfflineMode = isEventsView
         ? eventProvider.isOfflineMode
         : isCultureView
-            ? cultureProvider.isOfflineMode
+            ? false
             : listingProvider.isOfflineMode;
     final activeLastSynced = isEventsView
         ? eventProvider.lastSyncedAt
@@ -621,17 +620,116 @@ class _TouristDashboardState extends State<TouristDashboard> {
     final activeResultCount = isEventsView
         ? eventProvider.upcomingEvents.length
         : isCultureView
-            ? cultureProvider.vendors.length
+            ? cultureMarketplaceItems.length
             : listingProvider.listings.length;
     final activeLoading = isEventsView
         ? eventProvider.isUpcomingLoading
         : isCultureView
-            ? cultureProvider.isLoading
+            ? false
             : listingProvider.isLoading;
+    final showcaseHotspots = _aiHotspots.isNotEmpty
+        ? _aiHotspots.take(4).toList()
+        : listingProvider.listings
+            .take(4)
+            .map(
+              (listing) => <String, dynamic>{
+                'name': listing.title,
+                'district': listing.district ?? listing.location,
+                'category': listing.category,
+                'score': (((listing.rating ?? 4.4) * 20).round()).clamp(80, 99),
+              },
+            )
+            .toList();
 
     return MountainBackground(
       overlayOpacity: 0.08,
       child: Scaffold(
+        key: _scaffoldKey,
+        drawerScrimColor: Colors.transparent,
+        drawer: DashboardNavigationDrawer(
+          userName: authProvider.user?.name ?? 'Explorer',
+          currentCategory: listingProvider.selectedCategory,
+          categoryOptions: _categories,
+          onCategoryChanged: (category) {
+            listingProvider.filterByCategory(category);
+            if (category == 'Culture') {
+              cultureProvider.loadInitial();
+            } else if (category == 'Upcoming Events') {
+              eventProvider.fetchUpcomingEvents();
+            }
+          },
+          infoText: 'Dashboard loads the top 10 results first.',
+          items: [
+            DashboardNavItem(
+              label: 'Home',
+              icon: Icons.home_outlined,
+              selected: true,
+              onTap: () => Navigator.pop(context),
+            ),
+            DashboardNavItem(
+              label: 'Wishlist',
+              icon: Icons.favorite_border,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WishlistScreen()),
+                );
+              },
+            ),
+            DashboardNavItem(
+              label: 'Bookings',
+              icon: Icons.book_online_outlined,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MyBookingsScreen()),
+                );
+              },
+            ),
+            DashboardNavItem(
+              label: 'Upcoming Events',
+              icon: Icons.event_outlined,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const TouristEventsScreen(),
+                  ),
+                );
+              },
+            ),
+            DashboardNavItem(
+              label: 'Event Tickets',
+              icon: Icons.confirmation_number_outlined,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/my-event-tickets');
+              },
+            ),
+            DashboardNavItem(
+              label: 'Messages',
+              icon: Icons.chat_bubble_outline,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ChatListScreen()),
+                );
+              },
+            ),
+            DashboardNavItem(
+              label: 'Account',
+              icon: Icons.person_outline,
+              onTap: () {
+                Navigator.pop(context);
+                _showAccountSheet();
+              },
+            ),
+          ],
+        ),
         body: SafeArea(
           child: Scrollbar(
             controller: _dashboardScrollController,
@@ -644,13 +742,6 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   child: Column(
                     children: [
                       const OfflineIndicator(),
-                      Padding(
-                        padding: padding.copyWith(bottom: 0),
-                        child: _buildTourismContactStrip(
-                          locale: locale,
-                          isMobile: isMobile,
-                        ),
-                      ),
                       _buildHeader(
                         context: context,
                         authProvider: authProvider,
@@ -684,7 +775,12 @@ class _TouristDashboardState extends State<TouristDashboard> {
                           ),
                         ),
                       Padding(
-                        padding: padding.copyWith(top: 0, bottom: 12),
+                        padding: EdgeInsets.fromLTRB(
+                          isMobile ? 16 : 56,
+                          isMobile ? 8 : 18,
+                          isMobile ? 16 : 56,
+                          12,
+                        ),
                         child: TextField(
                           controller: _searchController,
                           decoration: InputDecoration(
@@ -701,7 +797,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                               borderSide: BorderSide.none,
                             ),
                             filled: true,
-                            fillColor: Colors.white.withValues(alpha: 0.9),
+                            fillColor: Colors.white.withValues(alpha: 0.94),
                             contentPadding: EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: isMobile ? 12 : 16,
@@ -731,6 +827,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                           ),
                         ),
                       ),
+<<<<<<< Updated upstream
                       if (!isOverview)
                         Padding(
                           padding: padding.copyWith(top: 0, bottom: 12),
@@ -740,6 +837,17 @@ class _TouristDashboardState extends State<TouristDashboard> {
                             listingCount: activeResultCount,
                             fontSize: fontSize,
                           ),
+=======
+                      Padding(
+                        padding: padding.copyWith(top: 0, bottom: 12),
+                        child: _buildDiscoverHero(
+                          locale: locale,
+                          isOverview: isOverview,
+                          listingCount: activeResultCount,
+                          fontSize: fontSize,
+                          isMobile: isMobile,
+                          showcaseHotspots: showcaseHotspots,
+>>>>>>> Stashed changes
                         ),
                       Padding(
                         padding: padding.copyWith(top: 0, bottom: 10),
@@ -893,13 +1001,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                             ),
                           ),
                         ),
-                      if (isOverview) ...[
-                        Padding(
-                          padding: padding.copyWith(top: 0, bottom: 12),
-                          child: _buildAiTouristPanel(locale, fontSize),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+                      if (isOverview) const SizedBox(height: 12),
                       if (isEventsView)
                         Padding(
                           padding: padding.copyWith(top: 0, bottom: 12),
@@ -1033,38 +1135,19 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     sliver: SliverGrid(
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: gridCrossAxisCount,
-                        childAspectRatio: isMobile ? 0.7 : 0.8,
+                        childAspectRatio: isCultureView
+                            ? (isMobile ? 0.62 : 0.68)
+                            : (isMobile ? 0.7 : 0.8),
                         crossAxisSpacing: isMobile ? 8 : 12,
                         mainAxisSpacing: isMobile ? 8 : 12,
                       ),
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           if (isCultureView) {
-                            final vendor = cultureProvider.vendors[index];
-                            return CultureVendorCard(
-                              vendor: vendor,
-                              onTap: () {
-                                if (vendor.linkedListingId != null &&
-                                    vendor.linkedListingId!.isNotEmpty) {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => ListingDetailScreen(
-                                        listingId: vendor.linkedListingId!,
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => CultureVendorDetailScreen(
-                                        vendor: vendor),
-                                  ),
-                                );
-                              },
+                            final item = cultureMarketplaceItems[index];
+                            return _CultureMarketplaceCard(
+                              item: item,
+                              isMobile: isMobile,
                             );
                           }
 
@@ -1084,7 +1167,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                           );
                         },
                         childCount: isCultureView
-                            ? cultureProvider.vendors.length
+                            ? cultureMarketplaceItems.length
                             : listingProvider.listings.length,
                       ),
                     ),
@@ -1139,7 +1222,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: Colors.white.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: ColorPalette.primaryGreen.withValues(alpha: 0.18),
@@ -1364,7 +1447,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 ),
               ),
             ],
-            if (_showLegacyAiSections && _aiHotspots.isNotEmpty) ...[
+            if (false && _aiHotspots.isNotEmpty) ...[
               Row(
                 children: [
                   Expanded(
@@ -1457,7 +1540,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
               ),
               const SizedBox(height: 16),
             ],
-            if (_showLegacyAiSections && _aiRecommendations.isNotEmpty) ...[
+            if (false && _aiRecommendations.isNotEmpty) ...[
               Text(
                 locale.translate(
                     'Suggested Activities', 'Mesebetsi e Sisinywang'),
@@ -1501,7 +1584,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     ),
                   ),
             ],
-            if (_showLegacyAiSections && _aiHotspots.isNotEmpty) ...[
+            if (false && _aiHotspots.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
                 locale.translate('Hotspots Right Now', 'Libaka Tse Chesehang'),
@@ -1750,8 +1833,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
         borderRadius: BorderRadius.circular(22),
         onTap: () => _openHotspotDiscovery(hotspot),
         child: Ink(
-          width: 252,
-          height: 176,
+          width: 310,
+          height: 172,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
@@ -2313,6 +2396,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
     required bool isOverview,
     required int listingCount,
     required double fontSize,
+    required bool isMobile,
+    required List<Map<String, dynamic>> showcaseHotspots,
   }) {
     final title = isOverview
         ? locale.translate(
@@ -2328,83 +2413,236 @@ class _TouristDashboardState extends State<TouristDashboard> {
             'U se u shebile pono e shebaneng le sehlopha se le seng.',
           );
 
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.95),
+                ColorPalette.lightGreen.withValues(alpha: 0.88),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.7),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: ColorPalette.darkGreen.withValues(alpha: 0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: fontSize + 3,
+                        fontWeight: FontWeight.w800,
+                        color: ColorPalette.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: fontSize - 2,
+                        color: ColorPalette.textSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                constraints: const BoxConstraints(minWidth: 72),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: ColorPalette.primaryGreen,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$listingCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      locale.translate('Live', 'Phela'),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (isOverview && showcaseHotspots.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _buildOverviewHotspotShowcase(
+            locale: locale,
+            fontSize: fontSize,
+            isMobile: isMobile,
+            showcaseHotspots: showcaseHotspots,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildOverviewHotspotShowcase({
+    required LocaleProvider locale,
+    required double fontSize,
+    required bool isMobile,
+    required List<Map<String, dynamic>> showcaseHotspots,
+  }) {
+    final subtitle = locale.translate(
+      'Popular places tourists are exploring right now.',
+      'Libaka tse tummeng tseo bahahlaudi ba li shebellang hona jwale.',
+    );
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(isMobile ? 16 : 18),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.95),
-            ColorPalette.lightGreen.withValues(alpha: 0.88),
-          ],
-        ),
+        color: Colors.white.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.65),
+          color: Colors.white.withValues(alpha: 0.72),
         ),
         boxShadow: [
           BoxShadow(
-            color: ColorPalette.darkGreen.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: fontSize + 3,
-                    fontWeight: FontWeight.w800,
-                    color: ColorPalette.textPrimary,
-                  ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: ColorPalette.primaryGreen.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: fontSize - 2,
-                    color: ColorPalette.textSecondary,
-                    height: 1.35,
+                child: const Icon(
+                  Icons.local_fire_department,
+                  color: ColorPalette.primaryGreen,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      locale.translate(
+                        'Hotspots Right Now',
+                        'Libaka Tse Tummeng Hona Jwale',
+                      ),
+                      style: TextStyle(
+                        fontSize: fontSize + 2,
+                        fontWeight: FontWeight.w800,
+                        color: ColorPalette.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: ColorPalette.textSecondary,
+                        fontSize: fontSize - 3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!isMobile) ...[
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ColorPalette.lightGreen.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    locale.translate(
+                      '${showcaseHotspots.length} live picks',
+                      '${showcaseHotspots.length} dikgetho tsa jwale',
+                    ),
+                    style: const TextStyle(
+                      color: ColorPalette.primaryGreen,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
-            ),
+            ],
           ),
-          const SizedBox(width: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: ColorPalette.darkGreen,
-              borderRadius: BorderRadius.circular(18),
+          if (isMobile) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: ColorPalette.lightGreen.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                locale.translate(
+                  '${showcaseHotspots.length} live picks',
+                  '${showcaseHotspots.length} dikgetho tsa jwale',
+                ),
+                style: const TextStyle(
+                  color: ColorPalette.primaryGreen,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '$listingCount',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  locale.translate('Live', 'Phela'),
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            height: isMobile ? 222 : 184,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: showcaseHotspots.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, index) => _buildTouristHotspotCard(
+                hotspot: showcaseHotspots[index],
+                locale: locale,
+              ),
             ),
           ),
         ],
@@ -2484,7 +2722,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
             ? ' • $selectedCulture'
             : '';
     final resultsCount = activeCategory == 'Culture'
-        ? cultureProvider.vendors.length
+        ? _cultureMarketplaceItems(cultureProvider.selectedSubcategorySlug)
+            .length
         : listingProvider.listings.length;
     final categoryLabel = (activeCategory == 'All'
             ? locale.translate('Overview', 'Kakaretso')
@@ -2749,27 +2988,27 @@ class _TouristDashboardState extends State<TouristDashboard> {
     required EdgeInsets padding,
   }) {
     return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.black.withValues(alpha: 0.18),
-            ColorPalette.darkGreen.withValues(alpha: 0.28),
-          ],
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
-        ),
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 12 : 56,
+        isMobile ? 10 : 18,
+        isMobile ? 12 : 56,
+        8,
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
+            IconButton(
+              icon: const Icon(Icons.menu, color: Colors.white),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black.withValues(alpha: 0.28),
+              ),
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              tooltip: 'Open navigation',
+            ),
+            const SizedBox(width: 8),
             CircleAvatar(
-              radius: isMobile ? 18 : 24,
+              radius: isMobile ? 18 : 31,
               backgroundColor: ColorPalette.primaryGreen,
               child: Text(
                 authProvider.user?.name[0] ?? 'U',
@@ -2780,37 +3019,14 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            ConstrainedBox(
-              constraints: BoxConstraints(minWidth: isMobile ? 160 : 240),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Welcome back,',
-                    style: TextStyle(
-                      fontSize: fontSize - 2,
-                      color: Colors.white70,
-                    ),
-                  ),
-                  Text(
-                    authProvider.user?.name ?? 'Explorer',
-                    style: TextStyle(
-                      fontSize: fontSize,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(width: 18),
             Stack(
               children: [
                 IconButton(
                   icon:
                       const Icon(Icons.notifications_none, color: Colors.white),
                   style: IconButton.styleFrom(
-                    backgroundColor: Colors.black.withValues(alpha: 0.22),
+                    backgroundColor: Colors.black.withValues(alpha: 0.34),
                   ),
                   onPressed: () {
                     Navigator.push(
@@ -2856,7 +3072,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   icon: const Icon(Icons.chat_bubble_outline,
                       color: Colors.white),
                   style: IconButton.styleFrom(
-                    backgroundColor: Colors.black.withValues(alpha: 0.22),
+                    backgroundColor: Colors.black.withValues(alpha: 0.34),
                   ),
                   onPressed: () {
                     Navigator.push(
@@ -2898,7 +3114,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
             IconButton(
               icon: const Icon(Icons.refresh, color: Colors.white),
               style: IconButton.styleFrom(
-                backgroundColor: Colors.black.withValues(alpha: 0.22),
+                backgroundColor: Colors.black.withValues(alpha: 0.34),
               ),
               onPressed: () {
                 listingProvider.loadListings();
@@ -2917,7 +3133,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
             IconButton(
               icon: const Icon(Icons.language, color: Colors.white),
               style: IconButton.styleFrom(
-                backgroundColor: Colors.black.withValues(alpha: 0.22),
+                backgroundColor: Colors.black.withValues(alpha: 0.34),
               ),
               onPressed: () {
                 showDialog(
@@ -2969,7 +3185,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 size: ResponsiveLayout.getIconSize(context),
               ),
               style: IconButton.styleFrom(
-                backgroundColor: Colors.black.withValues(alpha: 0.22),
+                backgroundColor: Colors.black.withValues(alpha: 0.34),
               ),
               onPressed: () {
                 Navigator.push(
@@ -3020,7 +3236,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
             IconButton(
               icon: const Icon(Icons.logout, color: Colors.white),
               style: IconButton.styleFrom(
-                backgroundColor: Colors.black.withValues(alpha: 0.22),
+                backgroundColor: Colors.black.withValues(alpha: 0.34),
               ),
               onPressed: () async {
                 final confirm = await showDialog<bool>(
@@ -3050,7 +3266,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const LoginScreen(),
+                        builder: (context) => const PublicLandingScreen(),
                       ),
                       (route) => false,
                     );
@@ -3065,47 +3281,89 @@ class _TouristDashboardState extends State<TouristDashboard> {
     );
   }
 
-  Widget _buildTourismContactStrip({
-    required LocaleProvider locale,
-    required bool isMobile,
-  }) {
-    final items = [
-      (
-        Icons.account_balance_rounded,
-        locale.translate('Lesotho Tourism', 'Bohahlaudi ba Lesotho')
+  List<_CultureMarketplaceItem> _cultureMarketplaceItems(String slug) {
+    final all = <_CultureMarketplaceItem>[
+      const _CultureMarketplaceItem(
+        slug: 'crafts',
+        category: 'Crafts',
+        title: 'Mokorotlo Basotho Hat',
+        subtitle: 'Handwoven national symbol',
+        description:
+            'A traditional Basotho hat inspired by Qiloane mountain. Made from woven grass and worn as a proud symbol of Lesotho identity.',
+        imageUrl: 'http://localhost:3001/uploads/culture/crafts/basotho.jpg',
+        fallbackAsset: 'assets/images/tourism_seed/thaba_bosiu_1.jpg',
+        normalPrice: 350,
+        specialPrice: 249,
+        vendor: 'Basotho Crafts Collective',
+        location: 'Maseru Craft Market',
+        badge: 'Month-end special',
       ),
-      (Icons.phone_rounded, '+266 2231 2238'),
-      (Icons.email_rounded, 'info@ltdc.org.ls'),
-      (Icons.place_rounded, 'Maseru, Lesotho'),
+      const _CultureMarketplaceItem(
+        slug: 'crafts',
+        category: 'Crafts',
+        title: 'Handmade Basotho Jewellery',
+        subtitle: 'Beads and cultural accessories',
+        description:
+            'Locally made beadwork and accessories for gifts, ceremonies, and cultural styling.',
+        imageUrl: '',
+        fallbackAsset: 'assets/images/tourism_seed/morija_1.jpg',
+        normalPrice: 180,
+        specialPrice: 129,
+        vendor: 'Art and Jewellery Shop',
+        location: 'Maseru',
+        badge: 'Craft pick',
+      ),
+      const _CultureMarketplaceItem(
+        slug: 'history',
+        category: 'History',
+        title: 'Thaba Bosiu Heritage Walk',
+        subtitle: 'Birthplace of the Basotho nation',
+        description:
+            'A guided visit through the fortress mountain, royal graves, and stories of King Moshoeshoe I.',
+        imageUrl: '',
+        fallbackAsset: 'assets/images/tourism_seed/thaba_bosiu_1.jpg',
+        normalPrice: 180,
+        specialPrice: 140,
+        vendor: 'Basotho Heritage Guides',
+        location: 'Thaba Bosiu',
+        badge: 'History tour',
+      ),
+      const _CultureMarketplaceItem(
+        slug: 'traditional-wear',
+        category: 'Traditional Wear',
+        title: 'Basotho Blanket Collection',
+        subtitle: 'Textiles and traditional styling',
+        description:
+            'Authentic Basotho blanket styles for ceremonies, cold highland travel, and cultural fashion.',
+        imageUrl: '',
+        fallbackAsset: 'assets/images/tourism_seed/Explore.jpg',
+        normalPrice: 850,
+        specialPrice: 699,
+        vendor: 'Clothing and Textiles Marketplace',
+        location: 'Maseru',
+        badge: 'Month-end textile deal',
+      ),
+      const _CultureMarketplaceItem(
+        slug: 'festival',
+        category: 'Festival',
+        title: 'Basotho Cultural Festival Pass',
+        subtitle: 'Music, food, dance, and craft stalls',
+        description:
+            'Discover live performances, cultural food, handmade goods, and community celebrations.',
+        imageUrl: '',
+        fallbackAsset: 'assets/images/tourism_seed/morija_2.jpg',
+        normalPrice: 220,
+        specialPrice: 160,
+        vendor: 'Local Events Partners',
+        location: 'Maseru and districts',
+        badge: 'Weekend deal',
+      ),
     ];
 
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 12 : 18,
-        vertical: isMobile ? 10 : 12,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFF103B3F).withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 8,
-        alignment: isMobile ? WrapAlignment.start : WrapAlignment.spaceBetween,
-        children: items
-            .map(
-              (item) => _contactPill(
-                icon: item.$1,
-                label: item.$2,
-                compact: isMobile,
-              ),
-            )
-            .toList(),
-      ),
-    );
+    if (slug == 'all') return all;
+    return all.where((item) => item.slug == slug).toList();
   }
+<<<<<<< Updated upstream
 
   Widget _contactPill({
     required IconData icon,
@@ -3138,4 +3396,229 @@ class _TouristDashboardState extends State<TouristDashboard> {
       ),
     );
   }
+=======
+>>>>>>> Stashed changes
 }
+
+class _CultureMarketplaceItem {
+  const _CultureMarketplaceItem({
+    required this.slug,
+    required this.category,
+    required this.title,
+    required this.subtitle,
+    required this.description,
+    required this.imageUrl,
+    required this.fallbackAsset,
+    required this.normalPrice,
+    required this.specialPrice,
+    required this.vendor,
+    required this.location,
+    required this.badge,
+  });
+
+  final String slug;
+  final String category;
+  final String title;
+  final String subtitle;
+  final String description;
+  final String imageUrl;
+  final String fallbackAsset;
+  final int normalPrice;
+  final int specialPrice;
+  final String vendor;
+  final String location;
+  final String badge;
+}
+
+class _CultureMarketplaceCard extends StatelessWidget {
+  const _CultureMarketplaceCard({
+    required this.item,
+    required this.isMobile,
+  });
+
+  final _CultureMarketplaceItem item;
+  final bool isMobile;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFF8FBF3),
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      elevation: 5,
+      shadowColor: Colors.black.withValues(alpha: 0.12),
+      child: InkWell(
+        onTap: () {},
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 5,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _CultureItemImage(item: item),
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        item.badge,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.favorite_border, size: 22),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 5,
+              child: Padding(
+                padding: EdgeInsets.all(isMobile ? 12 : 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: isMobile ? 17 : 20,
+                        fontWeight: FontWeight.w900,
+                        color: ColorPalette.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      item.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: ColorPalette.textSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      item.description,
+                      maxLines: isMobile ? 3 : 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: ColorPalette.textSecondary,
+                        height: 1.28,
+                      ),
+                    ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        const Icon(Icons.storefront,
+                            size: 15, color: ColorPalette.primaryGreen),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            item.vendor,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: ColorPalette.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 7),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.deepPurple.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            item.category,
+                            style: const TextStyle(
+                              color: Colors.deepPurple,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          'M${item.normalPrice}',
+                          style: const TextStyle(
+                            decoration: TextDecoration.lineThrough,
+                            color: Colors.red,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'M${item.specialPrice}',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: ColorPalette.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CultureItemImage extends StatelessWidget {
+  const _CultureItemImage({required this.item});
+
+  final _CultureMarketplaceItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    if (item.imageUrl.trim().isNotEmpty) {
+      return Image.network(
+        item.imageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) =>
+            Image.asset(item.fallbackAsset, fit: BoxFit.cover),
+      );
+    }
+    return Image.asset(item.fallbackAsset, fit: BoxFit.cover);
+  }
+}
+

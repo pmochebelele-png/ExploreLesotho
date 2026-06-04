@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -8,6 +9,7 @@ import '../utils/constants.dart';
 
 class AuthService {
   static String get baseUrl => Constants.baseUrl;
+  static const Duration _requestTimeout = Duration(seconds: 15);
 
   Map<String, dynamic> _safeDecodeResponse(http.Response response) {
     try {
@@ -46,11 +48,13 @@ class AuthService {
           'email': email,
           'password': password,
         }),
-      );
+      ).timeout(_requestTimeout);
 
       final data = _safeDecodeResponse(response);
 
-      if (response.statusCode == 200 && data['success'] == true) {
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          data['success'] == true) {
         return {
           'success': true,
           'token': data['token'],
@@ -61,6 +65,11 @@ class AuthService {
       return {
         'success': false,
         'message': _fallbackMessage(data, 'Login failed', response.statusCode),
+      };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'message': 'Server is taking too long. Please try again.',
       };
     } catch (e) {
       return {
@@ -86,11 +95,13 @@ class AuthService {
           'password': password,
           'phone': phone,
         }),
-      );
+      ).timeout(_requestTimeout);
 
       final data = _safeDecodeResponse(response);
 
-      if (response.statusCode == 200 && data['success'] == true) {
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          data['success'] == true) {
         return {
           'success': true,
           'token': data['token'],
@@ -105,6 +116,11 @@ class AuthService {
           'Registration failed',
           response.statusCode,
         ),
+      };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'message': 'Server is taking too long. Please try again.',
       };
     } catch (e) {
       return {
@@ -149,11 +165,13 @@ class AuthService {
           'previous_experience': previousExperience,
           'rating': rating,
         }),
-      );
+      ).timeout(_requestTimeout);
 
       final data = _safeDecodeResponse(response);
 
-      if (response.statusCode == 200 && data['success'] == true) {
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          data['success'] == true) {
         return {
           'success': true,
           'token': data['token'],
@@ -169,6 +187,11 @@ class AuthService {
           response.statusCode,
         ),
       };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'message': 'Server is taking too long. Please try again.',
+      };
     } catch (e) {
       return {
         'success': false,
@@ -183,7 +206,7 @@ class AuthService {
         Uri.parse('$baseUrl/auth/forgot-password'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'email': email}),
-      );
+      ).timeout(_requestTimeout);
 
       final data = _safeDecodeResponse(response);
       return {
@@ -194,6 +217,11 @@ class AuthService {
           response.statusCode,
         ),
         'resetToken': data['resetToken'],
+      };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'message': 'Server is taking too long. Please try again.',
       };
     } catch (e) {
       return {
@@ -217,7 +245,7 @@ class AuthService {
           'token': token,
           'password': newPassword,
         }),
-      );
+      ).timeout(_requestTimeout);
 
       final data = _safeDecodeResponse(response);
       return {
@@ -227,6 +255,11 @@ class AuthService {
           'Unable to reset password',
           response.statusCode,
         ),
+      };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'message': 'Server is taking too long. Please try again.',
       };
     } catch (e) {
       return {
@@ -248,7 +281,7 @@ class AuthService {
           'email': email,
           'code': code,
         }),
-      );
+      ).timeout(_requestTimeout);
 
       final data = _safeDecodeResponse(response);
       return {
@@ -258,6 +291,11 @@ class AuthService {
           'Unable to verify email',
           response.statusCode,
         ),
+      };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'message': 'Server is taking too long. Please try again.',
       };
     } catch (e) {
       return {

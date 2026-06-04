@@ -106,7 +106,7 @@ async function linkCultureVendorToRegisteredVendor(connection, vendorRecord) {
 
 async function runVendorMlVerification(vendorPayload) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 2500);
 
     try {
         const response = await fetch(`${ML_SERVICE_BASE_URL}/register_vendor`, {
@@ -392,16 +392,27 @@ router.post('/register-vendor', async (req, res) => {
                 updatedAt: new Date()
             });
             console.log('✅ Vendor inserted into MongoDB');
-            emailVerificationSent = await sendAccountVerification({
-                db,
-                email,
-                name: full_name,
-                role: 'vendor',
-                userId,
-            });
             }
             
             await connection.commit();
+
+            if (db) {
+                sendAccountVerification({
+                    db,
+                    email,
+                    name: full_name,
+                    role: 'vendor',
+                    userId,
+                })
+                    .then((sent) => {
+                        if (sent) {
+                            console.log('Vendor verification email sent');
+                        }
+                    })
+                    .catch((error) => {
+                        console.warn('Vendor verification email skipped:', error.message);
+                    });
+            }
             
             // Generate JWT token
             const token = generateToken(userId, email, 'vendor');

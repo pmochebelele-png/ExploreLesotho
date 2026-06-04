@@ -1,5 +1,6 @@
 import '../../widgets/admin/advanced_stats_grid.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../data/providers/admin_provider.dart';
 import '../../providers/locale_provider.dart';
@@ -11,10 +12,13 @@ import '../../data/models/vendor.dart';
 import '../../models/review.dart';
 import '../../widgets/common/custom_button.dart';
 import '../../widgets/mountain_background.dart';
+import '../../widgets/dashboard_navigation_drawer.dart';
 import '../analytics/ai_insights_dashboard.dart';
 import '../chat/chat_list_screen.dart';
 import '../chat/new_message_screen.dart';
 import '../auth/login_screen.dart';
+import '../public/public_landing_screen.dart';
+import '../unauthorized_screen.dart';
 import '../../utils/responsive_layout.dart';
 import 'culture_directory_review_screen.dart';
 
@@ -56,12 +60,101 @@ class _AdminDashboardState extends State<AdminDashboard>
   }
 
   void _handleTabChange() {
+    if (mounted) setState(() {});
     if (!_tabController.indexIsChanging && _tabController.index == 3) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         context.read<AdminProvider>().fetchReviewsSafe();
       });
     }
+  }
+
+  Future<void> _exportAdminData(
+    BuildContext context,
+    AdminProvider provider,
+    LocaleProvider locale, {
+    String reportType = 'all',
+  }) async {
+    final csv = StringBuffer();
+    final stats = provider.getPlatformStats();
+    csv.writeln('Explore Lesotho Admin Export');
+    csv.writeln('Generated,${DateTime.now().toIso8601String()}');
+    csv.writeln('Report,$reportType');
+    csv.writeln();
+
+    if (reportType == 'all' || reportType == 'stats') {
+      csv.writeln('Stats');
+      csv.writeln('Metric,Value');
+      for (final entry in stats.entries) {
+        csv.writeln('${_csv(entry.key)},${_csv(entry.value)}');
+      }
+      csv.writeln();
+    }
+
+    if (reportType == 'all' || reportType == 'users') {
+      csv.writeln('Users');
+      csv.writeln('ID,Name,Email,Role,Verified');
+      for (final user in provider.users) {
+        csv.writeln([
+          user.id,
+          user.name,
+          user.email,
+          user.role,
+          user.verified,
+        ].map(_csv).join(','));
+      }
+      csv.writeln();
+    }
+
+    if (reportType == 'all' || reportType == 'vendors') {
+      csv.writeln('Vendors');
+      csv.writeln('ID,Business,Owner,Email,Phone,Type,Status,Verified,Joined');
+      for (final vendor in provider.vendors) {
+        csv.writeln([
+          vendor.id,
+          vendor.businessName,
+          vendor.ownerName,
+          vendor.businessEmail ?? vendor.ownerEmail,
+          vendor.businessPhone ?? '',
+          vendor.businessType ?? '',
+          vendor.status,
+          vendor.isVerified,
+          vendor.joinedAt.toIso8601String(),
+        ].map(_csv).join(','));
+      }
+      csv.writeln();
+    }
+
+    if (reportType == 'all' || reportType == 'reviews') {
+      csv.writeln('Reviews');
+      csv.writeln('ID,User,Rating,Comment,Created');
+      for (final review in provider.reviews) {
+        csv.writeln([
+          review.id,
+          review.userName,
+          review.rating,
+          review.comment,
+          review.createdAt.toIso8601String(),
+        ].map(_csv).join(','));
+      }
+      csv.writeln();
+    }
+
+    await Clipboard.setData(ClipboardData(text: csv.toString()));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(locale.translate(
+          'Export copied to clipboard.',
+          'Export e kopiloe clipboard.',
+        )),
+      ),
+    );
+  }
+
+  String _csv(Object? value) {
+    final text = (value ?? '').toString().replaceAll('"', '""');
+    return '"$text"';
   }
 
   void _showChatUnreadDialog(BuildContext context, int unreadCount) {
@@ -133,8 +226,83 @@ class _AdminDashboardState extends State<AdminDashboard>
 
     final stats = adminProvider.getPlatformStats();
     final isMobile = ResponsiveLayout.isMobile(context);
+    final isDesktop = MediaQuery.of(context).size.width >= 1100;
     final fontSize = ResponsiveLayout.getFontSize(context);
     final padding = ResponsiveLayout.getPadding(context);
+
+    if (!authProvider.isAuthenticated) {
+      return const PublicLandingScreen();
+    }
+
+    if (!authProvider.isAdmin) {
+      return const UnauthorizedScreen();
+    }
+
+    final navItems = [
+      DashboardNavItem(
+        label: 'Overview',
+        icon: Icons.home_outlined,
+        selected: _tabController.index == 0,
+        onTap: () {
+          if (!isDesktop) Navigator.pop(context);
+          _tabController.animateTo(0);
+        },
+      ),
+      DashboardNavItem(
+        label: 'Users',
+        icon: Icons.people_outline,
+        selected: _tabController.index == 1,
+        onTap: () {
+          if (!isDesktop) Navigator.pop(context);
+          _tabController.animateTo(1);
+        },
+      ),
+      DashboardNavItem(
+        label: 'Vendors',
+        icon: Icons.storefront_outlined,
+        selected: _tabController.index == 2,
+        onTap: () {
+          if (!isDesktop) Navigator.pop(context);
+          _tabController.animateTo(2);
+        },
+      ),
+      DashboardNavItem(
+        label: 'Reviews',
+        icon: Icons.reviews_outlined,
+        selected: _tabController.index == 3,
+        onTap: () {
+          if (!isDesktop) Navigator.pop(context);
+          _tabController.animateTo(3);
+        },
+      ),
+      DashboardNavItem(
+        label: 'Culture Review',
+        icon: Icons.account_balance_outlined,
+        selected: _tabController.index == 4,
+        onTap: () {
+          if (!isDesktop) Navigator.pop(context);
+          _tabController.animateTo(4);
+        },
+      ),
+      DashboardNavItem(
+        label: 'Reports',
+        icon: Icons.assessment_outlined,
+        selected: _tabController.index == 5,
+        onTap: () {
+          if (!isDesktop) Navigator.pop(context);
+          _tabController.animateTo(5);
+        },
+      ),
+      DashboardNavItem(
+        label: 'AI Insights',
+        icon: Icons.auto_awesome_outlined,
+        selected: _tabController.index == 6,
+        onTap: () {
+          if (!isDesktop) Navigator.pop(context);
+          _tabController.animateTo(6);
+        },
+      ),
+    ];
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (chatProvider != null &&
@@ -149,42 +317,61 @@ class _AdminDashboardState extends State<AdminDashboard>
     return MountainBackground(
       overlayOpacity: 0.25,
       child: Scaffold(
+        drawer: isDesktop
+            ? null
+            : DashboardNavigationDrawer(
+          userName: authProvider.user?.name ?? 'Administrator',
+          currentCategory: 'Admin',
+          infoText:
+              'Monitor platform activity, users, vendors, culture reviews, and reports from one place.',
+          items: navItems,
+        ),
         appBar: AppBar(
+          leading: isDesktop
+              ? null
+              : Builder(
+                  builder: (context) => IconButton(
+                    icon: const Icon(Icons.menu),
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
+                ),
           title: Text(locale.translate(
             'Admin Dashboard',
             'Letlapa la Molaoli',
           )),
           backgroundColor: ColorPalette.primaryGreen,
           foregroundColor: Colors.white,
-          bottom: TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            indicatorColor: Colors.white,
-            tabs: [
-              Tab(
-                  icon: const Icon(Icons.dashboard),
-                  text: locale.translate('Overview', 'Kakaretso')),
-              Tab(
-                  icon: const Icon(Icons.people),
-                  text: locale.translate('Users', 'Basebelisi')),
-              Tab(
-                  icon: const Icon(Icons.store),
-                  text: locale.translate('Vendors', 'Barekisi')),
-              Tab(
-                  icon: const Icon(Icons.rate_review),
-                  text: locale.translate('Reviews', 'Maikutlo')),
-              Tab(
-                  icon: const Icon(Icons.museum),
-                  text:
-                      locale.translate('Culture Review', 'Tlhahlobo ea Setso')),
-              Tab(
-                  icon: const Icon(Icons.assessment),
-                  text: locale.translate('Reports', 'Litlaleho')),
-              Tab(
-                  icon: const Icon(Icons.auto_awesome),
-                  text: locale.translate('AI Insights', 'Tlhahlobo ea AI')),
-            ],
-          ),
+          bottom: isDesktop
+              ? null
+              : TabBar(
+                  controller: _tabController,
+                  isScrollable: true,
+                  indicatorColor: Colors.white,
+                  tabs: [
+                    Tab(
+                        icon: const Icon(Icons.dashboard),
+                        text: locale.translate('Overview', 'Kakaretso')),
+                    Tab(
+                        icon: const Icon(Icons.people),
+                        text: locale.translate('Users', 'Basebelisi')),
+                    Tab(
+                        icon: const Icon(Icons.store),
+                        text: locale.translate('Vendors', 'Barekisi')),
+                    Tab(
+                        icon: const Icon(Icons.rate_review),
+                        text: locale.translate('Reviews', 'Maikutlo')),
+                    Tab(
+                        icon: const Icon(Icons.museum),
+                        text: locale.translate(
+                            'Culture Review', 'Tlhahlobo ea Setso')),
+                    Tab(
+                        icon: const Icon(Icons.assessment),
+                        text: locale.translate('Reports', 'Litlaleho')),
+                    Tab(
+                        icon: const Icon(Icons.auto_awesome),
+                        text: locale.translate('AI Insights', 'Tlhahlobo ea AI')),
+                  ],
+                ),
           actions: [
             IconButton(
               icon: const Icon(Icons.language),
@@ -305,7 +492,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const LoginScreen()),
+                          builder: (context) => const PublicLandingScreen()),
                       (route) => false,
                     );
                   }
@@ -315,33 +502,79 @@ class _AdminDashboardState extends State<AdminDashboard>
             ),
           ],
         ),
-        body: Stack(
-          children: [
-            TabBarView(
-              controller: _tabController,
-              children: [
-                _buildOverviewTab(context, locale, adminProvider, stats,
-                    chatProvider, isMobile, fontSize, padding),
-                _buildUsersTab(context, locale, adminProvider),
-                _buildVendorsTab(context, locale, adminProvider),
-                _buildReviewsTab(context, locale, adminProvider),
-                const CultureDirectoryReviewScreen(),
-                _buildReportsTab(context, locale, adminProvider),
-                const AIInsightsDashboard(),
-              ],
-            ),
-            if (adminProvider.isLoading && _tabController.index != 6)
-              const Positioned(
-                top: 16,
-                right: 16,
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2.5),
-                ),
+        body: isDesktop
+            ? Row(
+                children: [
+                  SizedBox(
+                    width: 320,
+                    child: DashboardSidebarPanel(
+                      userName: authProvider.user?.name ?? 'Administrator',
+                      items: navItems,
+                      currentCategory: 'Admin',
+                      infoText:
+                          'Review users, vendors, reports, AI insights, and culture approvals from this sidebar.',
+                      showCloseButton: false,
+                    ),
+                  ),
+                  const VerticalDivider(width: 1),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _buildOverviewTab(context, locale, adminProvider,
+                                stats, chatProvider, isMobile, fontSize, padding),
+                            _buildUsersTab(context, locale, adminProvider),
+                            _buildVendorsTab(context, locale, adminProvider),
+                            _buildReviewsTab(context, locale, adminProvider),
+                            const CultureDirectoryReviewScreen(),
+                            _buildReportsTab(context, locale, adminProvider),
+                            const AIInsightsDashboard(),
+                          ],
+                        ),
+                        if (adminProvider.isLoading && _tabController.index != 6)
+                          const Positioned(
+                            top: 16,
+                            right: 16,
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2.5),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : Stack(
+                children: [
+                  TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildOverviewTab(context, locale, adminProvider, stats,
+                          chatProvider, isMobile, fontSize, padding),
+                      _buildUsersTab(context, locale, adminProvider),
+                      _buildVendorsTab(context, locale, adminProvider),
+                      _buildReviewsTab(context, locale, adminProvider),
+                      const CultureDirectoryReviewScreen(),
+                      _buildReportsTab(context, locale, adminProvider),
+                      const AIInsightsDashboard(),
+                    ],
+                  ),
+                  if (adminProvider.isLoading && _tabController.index != 6)
+                    const Positioned(
+                      top: 16,
+                      right: 16,
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      ),
+                    ),
+                ],
               ),
-          ],
-        ),
       ),
     );
   }
@@ -383,7 +616,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                 children: [
                   Text(
                       locale.translate(
-                          'Welcome, Admin!', 'Rea u amohela, Molaoli!'),
+                          'Admin Overview', 'Kakaretso ea Molaoli'),
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 24,
@@ -394,49 +627,6 @@ class _AdminDashboardState extends State<AdminDashboard>
                           'Laola sethala sa hao hantle'),
                       style:
                           const TextStyle(color: Colors.white70, fontSize: 16)),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      CircleAvatar(
-                          radius: isMobile ? 18 : 24,
-                          backgroundColor: Colors.white.withOpacity(0.2),
-                          child: Text(
-                              Provider.of<AuthProvider>(context)
-                                      .user
-                                      ?.name[0] ??
-                                  'A',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: isMobile ? 14 : 16))),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                                locale.translate(
-                                    'Logged in as,', 'U kene joaloka,'),
-                                style: TextStyle(
-                                    fontSize: fontSize - 2,
-                                    color: Colors.white70)),
-                            Text(
-                                Provider.of<AuthProvider>(context).user?.role ==
-                                        'admin'
-                                    ? 'Admin'
-                                    : (Provider.of<AuthProvider>(context)
-                                            .user
-                                            ?.name ??
-                                        'User'),
-                                style: TextStyle(
-                                    fontSize: fontSize,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 16),
                   GestureDetector(
                     onTap: () => Navigator.push(
@@ -610,11 +800,11 @@ class _AdminDashboardState extends State<AdminDashboard>
                       icon: Icons.download,
                       label: locale.translate('Export Data', 'Lumella Datha'),
                       color: Colors.green,
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text(locale.translate(
-                                'Export started...', 'Ho qala ho export...'))));
-                      })),
+                      onTap: () => _exportAdminData(
+                            context,
+                            provider,
+                            locale,
+                          ))),
               const SizedBox(width: 12),
               Expanded(
                   child: _buildActionCard(
@@ -1710,35 +1900,60 @@ class _AdminDashboardState extends State<AdminDashboard>
             subtitle: locale.translate('Total users, growth, demographics',
                 'Basebelisi, kholo, lipalopalo'),
             color: Colors.blue,
-            onTap: () {}),
+            onTap: () => _exportAdminData(
+                  context,
+                  provider,
+                  locale,
+                  reportType: 'users',
+                )),
         _buildReportCard(
             icon: Icons.store,
             title: locale.translate('Vendor Report', 'Tlaleho ea Barekisi'),
             subtitle: locale.translate('Active vendors, approvals, revenue',
                 'Barekisi ba sebetsang, tumello, lekeno'),
             color: Colors.green,
-            onTap: () {}),
+            onTap: () => _exportAdminData(
+                  context,
+                  provider,
+                  locale,
+                  reportType: 'vendors',
+                )),
         _buildReportCard(
             icon: Icons.book_online,
             title: locale.translate('Booking Report', 'Tlaleho ea Lipehelo'),
             subtitle: locale.translate('Booking trends, revenue, occupancy',
                 'Mekhoa ea lipehelo, lekeno, ho tlala'),
             color: Colors.orange,
-            onTap: () {}),
+            onTap: () => _exportAdminData(
+                  context,
+                  provider,
+                  locale,
+                  reportType: 'stats',
+                )),
         _buildReportCard(
             icon: Icons.trending_up,
             title: locale.translate('Revenue Report', 'Tlaleho ea Lekeno'),
             subtitle: locale.translate('Monthly revenue, projections',
                 'Lekeno la khoeli le khoeli, likhakanyo'),
             color: Colors.purple,
-            onTap: () {}),
+            onTap: () => _exportAdminData(
+                  context,
+                  provider,
+                  locale,
+                  reportType: 'stats',
+                )),
         _buildReportCard(
             icon: Icons.rate_review,
             title: locale.translate('Reviews Report', 'Tlaleho ea Maikutlo'),
             subtitle: locale.translate('Sentiment analysis, ratings',
                 'Tlhahlobo ea maikutlo, litekanyo'),
             color: Colors.teal,
-            onTap: () {}),
+            onTap: () => _exportAdminData(
+                  context,
+                  provider,
+                  locale,
+                  reportType: 'reviews',
+                )),
       ],
     );
   }

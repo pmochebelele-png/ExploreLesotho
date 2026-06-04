@@ -32,7 +32,7 @@ class VendorProvider extends ChangeNotifier {
       final profileRes = await _apiService.get('/vendors/$vendorId');
 
       // 2. Fetch Vendor Bookings
-      final bookingsRes = await _apiService.get('/bookings/vendor/$vendorId');
+      final bookingsRes = await _apiService.get('/bookings/vendor');
 
       // 3. Fetch Listings
       final listingsRes = await _apiService.get('/listings/vendor/$vendorId');
@@ -69,8 +69,7 @@ class VendorProvider extends ChangeNotifier {
     if (id != null) {
       fetchVendorData(id.toString());
     } else {
-      _vendors = [];
-      notifyListeners();
+      fetchVendors();
     }
   }
 
@@ -78,7 +77,7 @@ class VendorProvider extends ChangeNotifier {
   Future<bool> updateBookingStatus(int bookingId, String status) async {
     try {
       final response = await _apiService
-          .put('/bookings/$bookingId/status', {'status': status});
+          .patch('/bookings/$bookingId/status', {'status': status});
 
       if (response.statusCode == 200) {
         refresh();
@@ -106,11 +105,55 @@ class VendorProvider extends ChangeNotifier {
     return _vendors.where((v) => !v.isVerified).toList();
   }
 
+  Future<void> fetchVendors() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await _apiService
+          .get('/admin/vendors/all?t=${DateTime.now().millisecondsSinceEpoch}');
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> rows = data['vendors'] ?? const [];
+        _vendors = rows
+            .whereType<Map>()
+            .map((item) => Vendor.fromJson(
+                item.map((key, value) => MapEntry(key.toString(), value))))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Error fetching vendors: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> approveVendor(String vendorId) async {
+    try {
+      final response =
+          await _apiService.patch('/admin/vendors/$vendorId/verify', {});
+      if (response.statusCode == 200) {
+        await fetchVendors();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Error approving vendor: $e');
+    }
     return false;
   }
 
   Future<bool> rejectVendor(String vendorId) async {
+    try {
+      final response =
+          await _apiService.patch('/admin/vendors/$vendorId/reject', {});
+      if (response.statusCode == 200) {
+        await fetchVendors();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Error rejecting vendor: $e');
+    }
     return false;
   }
 

@@ -257,6 +257,31 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
     final attractionBars = _asListOfMaps(_charts?['attractions_bar']);
     final marketPie = _asListOfMaps(_charts?['source_market_pie']);
     final sentimentPie = _asListOfMaps(_charts?['sentiment_pie']);
+    final platformStats = adminProvider.getPlatformStats();
+    final verifiedVendors = adminProvider.vendors
+        .where((vendor) => vendor.isVerified || vendor.status == 'active')
+        .length;
+    final mlVerifiedVendors =
+        _intValue(systemOverview['verified_vendors']);
+    final displayedVerifiedVendors =
+        verifiedVendors > 0 ? verifiedVendors : mlVerifiedVendors;
+    final displayedTotalBookings =
+        _maxInt(platformStats['totalBookings'], revenueMetrics['total_bookings']);
+    final vendorRevenue = adminProvider.vendors.fold<double>(
+      0,
+      (sum, vendor) => sum + vendor.totalRevenue,
+    );
+    final displayedRevenue = _maxDouble(
+      platformStats['totalRevenue'],
+      revenueMetrics['projected_revenue'],
+      vendorRevenue,
+    );
+    final localPositiveSentiment = _positiveSentimentFromReviews(adminProvider);
+    final displayedPositiveSentiment = sentimentDistribution.isNotEmpty
+        ? _formatPercent(sentimentDistribution['positive'])
+        : localPositiveSentiment > 0
+            ? '$localPositiveSentiment%'
+            : '${_intValue(sentiment['positive_percentage'])}%';
 
     return Scrollbar(
       controller: _insightsScrollController,
@@ -327,7 +352,7 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
                   'Verified Vendors',
                   'Barekisi ba Netefaditsweng',
                 ),
-                '${systemOverview['verified_vendors'] ?? 0}',
+                '$displayedVerifiedVendors',
                 Colors.green,
               ),
               _buildMetricCard(
@@ -336,7 +361,7 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
                   'Total Bookings',
                   'Kakaretso ya Lipeheletso',
                 ),
-                '${revenueMetrics['total_bookings'] ?? 0}',
+                '$displayedTotalBookings',
                 Colors.blue,
               ),
               _buildMetricCard(
@@ -345,7 +370,7 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
                   'Projected Revenue',
                   'Lekeno le Lebelletsweng',
                 ),
-                'M${revenueMetrics['projected_revenue'] ?? 0}',
+                'M${displayedRevenue.toStringAsFixed(0)}',
                 Colors.orange,
               ),
               _buildMetricCard(
@@ -354,9 +379,7 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
                   'Positive Sentiment',
                   'Maikutlo a Matle',
                 ),
-                sentimentDistribution.isNotEmpty
-                    ? '${sentimentDistribution['positive'] ?? 0}'
-                    : '${sentiment['positive_percentage'] ?? 0}%',
+                displayedPositiveSentiment,
                 Colors.purple,
               ),
             ],
@@ -834,6 +857,37 @@ class _AIInsightsDashboardState extends State<AIInsightsDashboard> {
   double _numValue(dynamic value) {
     if (value is num) return value.toDouble();
     return double.tryParse('$value') ?? 0;
+  }
+
+  int _intValue(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    final cleaned = '$value'.replaceAll(RegExp(r'[^0-9.-]'), '');
+    return int.tryParse(cleaned) ?? double.tryParse(cleaned)?.round() ?? 0;
+  }
+
+  int _maxInt(dynamic first, dynamic second) {
+    final a = _intValue(first);
+    final b = _intValue(second);
+    return a > b ? a : b;
+  }
+
+  double _maxDouble(dynamic first, dynamic second, dynamic third) {
+    final values = [_numValue(first), _numValue(second), _numValue(third)];
+    values.sort();
+    return values.last;
+  }
+
+  String _formatPercent(dynamic value) {
+    final text = value?.toString() ?? '0';
+    return text.endsWith('%') ? text : '$text%';
+  }
+
+  int _positiveSentimentFromReviews(AdminProvider adminProvider) {
+    final reviews = adminProvider.reviews;
+    if (reviews.isEmpty) return 0;
+    final positive = reviews.where((review) => review.rating >= 4).length;
+    return ((positive / reviews.length) * 100).round();
   }
 
   Widget _buildSectionTitle(String title) {

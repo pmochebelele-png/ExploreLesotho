@@ -12,12 +12,14 @@ import '../../providers/test_chat_provider.dart';
 import '../../core/themes/color_palette.dart';
 import '../../services/api_service.dart';
 import '../../services/ml_service.dart';
-import '../../utils/vendor_facility.dart';
 import '../../widgets/social_media_buttons.dart';
+import '../../widgets/dashboard_navigation_drawer.dart';
 import '../../widgets/mountain_background.dart';
 import '../auth/login_screen.dart';
 import '../chat/chat_detail_screen.dart';
 import '../chat/chat_list_screen.dart';
+import '../public/public_landing_screen.dart';
+import '../unauthorized_screen.dart';
 import 'vendor_listings_screen.dart';
 import 'vendor_bookings_screen.dart';
 import 'vendor_analytics_screen.dart';
@@ -50,6 +52,9 @@ class _VendorDashboardState extends State<VendorDashboard>
   void initState() {
     super.initState();
     _tabController = TabController(length: 6, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
 
     // Load vendor events when dashboard loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -102,6 +107,15 @@ class _VendorDashboardState extends State<VendorDashboard>
 
     final vendorUserId =
         authProvider.user?.userId?.toString() ?? authProvider.user?.id;
+    final isDesktop = MediaQuery.of(context).size.width >= 1100;
+
+    if (!authProvider.isAuthenticated) {
+      return const PublicLandingScreen();
+    }
+
+    if (!authProvider.isVendor) {
+      return const UnauthorizedScreen();
+    }
 
     // Use raw listings so tourist search/category filters do not hide vendor data.
     final vendorListings = listingProvider.allListings
@@ -124,13 +138,83 @@ class _VendorDashboardState extends State<VendorDashboard>
         .fold(0.0, (sum, b) => sum + b.grandTotal);
     final primaryListing =
         vendorListings.isNotEmpty ? vendorListings.first : null;
-    final facility =
-        VendorFacilityTaxonomy.facilityForBusinessType(authProvider.user?.businessType);
+    final navItems = [
+      DashboardNavItem(
+        label: 'Overview',
+        icon: Icons.home_outlined,
+        selected: _tabController.index == 0,
+        onTap: () {
+          if (!isDesktop) Navigator.pop(context);
+          _tabController.animateTo(0);
+        },
+      ),
+      DashboardNavItem(
+        label: 'Listings',
+        icon: Icons.list_alt_outlined,
+        selected: _tabController.index == 1,
+        onTap: () {
+          if (!isDesktop) Navigator.pop(context);
+          _tabController.animateTo(1);
+        },
+      ),
+      DashboardNavItem(
+        label: 'Bookings',
+        icon: Icons.book_online_outlined,
+        selected: _tabController.index == 2,
+        onTap: () {
+          if (!isDesktop) Navigator.pop(context);
+          _tabController.animateTo(2);
+        },
+      ),
+      DashboardNavItem(
+        label: 'Analytics',
+        icon: Icons.analytics_outlined,
+        selected: _tabController.index == 3,
+        onTap: () {
+          if (!isDesktop) Navigator.pop(context);
+          _tabController.animateTo(3);
+        },
+      ),
+      DashboardNavItem(
+        label: 'Reviews',
+        icon: Icons.rate_review_outlined,
+        selected: _tabController.index == 4,
+        onTap: () {
+          if (!isDesktop) Navigator.pop(context);
+          _tabController.animateTo(4);
+        },
+      ),
+      DashboardNavItem(
+        label: 'Events',
+        icon: Icons.event_outlined,
+        selected: _tabController.index == 5,
+        onTap: () {
+          if (!isDesktop) Navigator.pop(context);
+          _tabController.animateTo(5);
+        },
+      ),
+    ];
 
     return MountainBackground(
       overlayOpacity: 0.25,
       child: Scaffold(
+        drawer: isDesktop
+            ? null
+            : DashboardNavigationDrawer(
+          userName: authProvider.user?.name ?? 'Vendor',
+          currentCategory: 'Business',
+          infoText: 'Use the tabs to manage listings, bookings, reviews, and analytics.',
+          items: navItems,
+        ),
         appBar: AppBar(
+          leading: isDesktop
+              ? null
+              : Builder(
+                  builder: (context) => IconButton(
+                    icon: const Icon(Icons.menu),
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
+                ),
           title:
               Text(locale.translate('Vendor Dashboard', 'Letlapa la Morekisi')),
           backgroundColor: ColorPalette.primaryGreen,
@@ -263,7 +347,7 @@ class _VendorDashboardState extends State<VendorDashboard>
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const LoginScreen()),
+                          builder: (context) => const PublicLandingScreen()),
                       (route) => false,
                     );
                   }
@@ -272,65 +356,111 @@ class _VendorDashboardState extends State<VendorDashboard>
               tooltip: 'Logout',
             ),
           ],
-          bottom: TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            indicatorColor: Colors.white,
-            tabs: [
-              Tab(
-                icon: const Icon(Icons.dashboard),
-                text: locale.translate('Overview', 'Kakaretso'),
-              ),
-              Tab(
-                icon: const Icon(Icons.list),
-                text: facility.label,
-              ),
-              Tab(
-                icon: const Icon(Icons.book_online),
-                text: locale.translate('Bookings', 'Lipeheletso'),
-              ),
-              Tab(
-                icon: const Icon(Icons.analytics),
-                text: locale.translate('Analytics', 'Lipalopalo'),
-              ),
-              Tab(
-                icon: const Icon(Icons.rate_review),
-                text: locale.translate('Reviews', 'Maikutlo'),
-              ),
-              // ✅ Events Tab
-              Tab(
-                icon: const Icon(Icons.event),
-                text: locale.translate('Events', 'Liketsahalo'),
-              ),
-            ],
-          ),
+          bottom: isDesktop
+              ? null
+              : TabBar(
+                  controller: _tabController,
+                  isScrollable: true,
+                  indicatorColor: Colors.white,
+                  tabs: [
+                    Tab(
+                      icon: const Icon(Icons.dashboard),
+                      text: locale.translate('Overview', 'Kakaretso'),
+                    ),
+                    Tab(
+                      icon: const Icon(Icons.list),
+                      text: locale.translate('Listings', 'Manane'),
+                    ),
+                    Tab(
+                      icon: const Icon(Icons.book_online),
+                      text: locale.translate('Bookings', 'Lipeheletso'),
+                    ),
+                    Tab(
+                      icon: const Icon(Icons.analytics),
+                      text: locale.translate('Analytics', 'Lipalopalo'),
+                    ),
+                    Tab(
+                      icon: const Icon(Icons.rate_review),
+                      text: locale.translate('Reviews', 'Maikutlo'),
+                    ),
+                    Tab(
+                      icon: const Icon(Icons.event),
+                      text: locale.translate('Events', 'Liketsahalo'),
+                    ),
+                  ],
+                ),
         ),
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildOverviewTab(
-                context,
-                locale,
-                totalListings,
-                totalBookings,
-                totalEvents,
-                completedBookings,
-                pendingBookings,
-                totalRevenue,
-                vendorBookings,
-                authProvider,
-                chatProvider,
-                vendorListings,
-                primaryListing),
-            VendorListingsScreen(initialCategory: facility.listingCategory),
-            VendorBookingsScreen(vendorBookings: vendorBookings),
-            VendorAnalyticsScreen(
-                vendorBookings: vendorBookings, vendorListings: vendorListings),
-            const VendorReviewsScreen(),
-            // ✅ Vendor Events Screen
-            VendorEventsScreen(),
-          ],
-        ),
+        body: isDesktop
+            ? Row(
+                children: [
+                  SizedBox(
+                    width: 320,
+                    child: DashboardSidebarPanel(
+                      userName: authProvider.user?.name ?? 'Vendor',
+                      items: navItems,
+                      currentCategory: 'Business',
+                      infoText:
+                          'Use the sidebar to move between overview, listings, bookings, reviews, and events.',
+                      showCloseButton: false,
+                    ),
+                  ),
+                  const VerticalDivider(width: 1),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildOverviewTab(
+                            context,
+                            locale,
+                            totalListings,
+                            totalBookings,
+                            totalEvents,
+                            completedBookings,
+                            pendingBookings,
+                            totalRevenue,
+                            vendorBookings,
+                            authProvider,
+                            chatProvider,
+                            vendorListings,
+                            primaryListing),
+                        const VendorListingsScreen(),
+                        VendorBookingsScreen(vendorBookings: vendorBookings),
+                        VendorAnalyticsScreen(
+                            vendorBookings: vendorBookings,
+                            vendorListings: vendorListings),
+                        const VendorReviewsScreen(),
+                        VendorEventsScreen(),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildOverviewTab(
+                      context,
+                      locale,
+                      totalListings,
+                      totalBookings,
+                      totalEvents,
+                      completedBookings,
+                      pendingBookings,
+                      totalRevenue,
+                      vendorBookings,
+                      authProvider,
+                      chatProvider,
+                      vendorListings,
+                      primaryListing),
+                  const VendorListingsScreen(),
+                  VendorBookingsScreen(vendorBookings: vendorBookings),
+                  VendorAnalyticsScreen(
+                      vendorBookings: vendorBookings,
+                      vendorListings: vendorListings),
+                  const VendorReviewsScreen(),
+                  VendorEventsScreen(),
+                ],
+              ),
       ),
     );
   }
@@ -778,25 +908,15 @@ class _VendorDashboardState extends State<VendorDashboard>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    locale.translate('Welcome back,', 'Rea u amohela hape,'),
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    authProvider.user?.name ?? 'Vendor',
+                    locale.translate(
+                      'Manage your listings, events, and track bookings from one place.',
+                      'Laola lintlha, liketsahalo, le ho shebella lipeheletso tsohle sebakeng se le seng.',
+                    ),
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    locale.translate(
-                      'Manage your listings, events, and track bookings',
-                      'Laola lintlha, liketsahalo, le ho shebella lipehelo tsa hao',
-                    ),
-                    style: const TextStyle(color: Colors.white70),
                   ),
                 ],
               ),

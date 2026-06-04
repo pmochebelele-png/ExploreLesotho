@@ -8,6 +8,12 @@ import '../services/culture_service.dart';
 
 class CultureProvider extends ChangeNotifier {
   final CultureService _service = CultureService();
+  static const Set<String> _allowedSubcategorySlugs = {
+    'crafts',
+    'festival',
+    'history',
+    'traditional-wear',
+  };
 
   List<CultureSubcategory> _subcategories = [];
   List<CultureVendor> _vendors = [];
@@ -43,9 +49,7 @@ class CultureProvider extends ChangeNotifier {
     if (subcategoryResult['success'] == true) {
       final fetched = List<CultureSubcategory>.from(
           subcategoryResult['subcategories'] ?? []);
-      // Hide Architecture from the culture chips per product decision.
-      _subcategories =
-          fetched.where((s) => s.slug.toLowerCase() != 'architecture').toList();
+      _subcategories = _filterSubcategories(fetched);
       _isOfflineMode = false;
       _lastSyncedAt = _cacheService?.getCultureLastUpdated();
     } else {
@@ -53,7 +57,7 @@ class CultureProvider extends ChangeNotifier {
       final cachedSubcategories =
           List<CultureSubcategory>.from(cached['subcategories'] ?? const []);
       if (cachedSubcategories.isNotEmpty) {
-        _subcategories = cachedSubcategories;
+        _subcategories = _filterSubcategories(cachedSubcategories);
         _isOfflineMode = true;
         _error = 'Offline mode: showing cached culture data';
         _lastSyncedAt = _cacheService?.getCultureLastUpdated();
@@ -66,6 +70,15 @@ class CultureProvider extends ChangeNotifier {
     await loadVendors();
     _isLoading = false;
     notifyListeners();
+  }
+
+  List<CultureSubcategory> _filterSubcategories(
+    List<CultureSubcategory> values,
+  ) {
+    return values
+        .where((subcategory) =>
+            _allowedSubcategorySlugs.contains(subcategory.slug.toLowerCase()))
+        .toList();
   }
 
   Future<void> loadVendors({String? search}) async {

@@ -199,22 +199,15 @@ class _VendorListingsScreenState extends State<VendorListingsScreen> {
           hint: 'Select culture type',
           options: [
             'Crafts',
-            'Music',
-            'Dance',
-            'Art',
-            'Food Heritage',
-            'Storytelling',
             'History',
             'Traditional Wear',
-            'Architecture',
-            'Spiritual Heritage',
             'Festival',
           ],
         ),
         _CategoryFieldConfig(
             key: 'heritageFocus',
             label: 'Heritage focus',
-            hint: 'History, crafts, music, storytelling'),
+            hint: 'History, crafts, festival, traditional wear'),
         _CategoryFieldConfig(
             key: 'openingHours',
             label: 'Opening hours',

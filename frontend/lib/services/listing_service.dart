@@ -99,6 +99,36 @@ class ListingService {
     }
   }
 
+  Future<Map<String, dynamic>> fetchGoogleHotels() async {
+    try {
+      final response = await _api.get('/travel/google-hotels?limit=20');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final listings = ((data['listings'] ?? []) as List)
+            .map((item) => Listing.fromJson(item))
+            .toList();
+
+        return {
+          'success': true,
+          'listings': listings,
+          'source': data['source'],
+          'configured': data['configured'] == true,
+        };
+      }
+
+      return {
+        'success': false,
+        'error': 'Failed to load map hotels: ${response.statusCode}',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Map hotel lookup error: $e',
+      };
+    }
+  }
+
   Future<Map<String, dynamic>> createListing(Listing listing) async {
     try {
       final images = List<String>.from(

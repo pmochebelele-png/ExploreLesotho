@@ -122,6 +122,31 @@ class ListingProvider extends ChangeNotifier {
     }
   }
 
+  void _mergeExternalListings(List<Listing> externalListings) {
+    if (externalListings.isEmpty) return;
+    final seenIds = _listings.map((listing) => listing.id).toSet();
+    final seenTitles = _listings
+        .map((listing) => listing.title.trim().toLowerCase())
+        .where((title) => title.isNotEmpty)
+        .toSet();
+    final missing = externalListings.where((listing) {
+      final title = listing.title.trim().toLowerCase();
+      return !seenIds.contains(listing.id) &&
+          title.isNotEmpty &&
+          !seenTitles.contains(title);
+    }).toList();
+    if (missing.isNotEmpty) {
+      _listings = [..._listings, ...missing];
+    }
+  }
+
+  Future<void> _mergeMapHotels() async {
+    final result = await _listingService.fetchGoogleHotels();
+    if (result['success'] == true) {
+      _mergeExternalListings(List<Listing>.from(result['listings'] ?? []));
+    }
+  }
+
   Future<void> loadListings() async {
     _isLoading = true;
     _error = null;
@@ -131,6 +156,7 @@ class ListingProvider extends ChangeNotifier {
     final result = await _listingService.fetchListings();
     if (result['success'] == true) {
       _applyFetchResult(result);
+      await _mergeMapHotels();
       await _cacheService?.saveListings(_listings);
       _lastSyncedAt = _cacheService?.getListingsLastUpdated();
     } else {
@@ -156,6 +182,7 @@ class ListingProvider extends ChangeNotifier {
     final result = await _listingService.fetchListings();
     if (result['success'] == true) {
       _applyFetchResult(result);
+      await _mergeMapHotels();
       await _cacheService?.saveListings(_listings);
       _lastSyncedAt = _cacheService?.getListingsLastUpdated();
     } else if (_listings.isEmpty) {

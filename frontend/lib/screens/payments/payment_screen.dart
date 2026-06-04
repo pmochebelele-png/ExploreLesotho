@@ -609,12 +609,31 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final message = result['customerMessage']?.toString() ??
         'Payment request sent. Confirm it on your phone.';
 
+    String successBookingId = widget.bookingId;
+
     if (status == 'paid') {
       await NotificationService().sendPaymentSuccessNotification(
         bookingTitle: widget.bookingDetails?['listingTitle'] ?? locale.translate('Booking', 'Phehelo'),
         amount: _total,
         currency: widget.currency,
       );
+
+      final confirmed = await _confirmPaymentAction(reference);
+      if (!mounted || !context.mounted) return;
+
+      if (confirmed == null) {
+        final bookingProvider = Provider.of<BookingProvider>(context, listen: false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(bookingProvider.error ?? 'Failed to confirm booking'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      successBookingId =
+          confirmed['recordId']?.toString() ?? widget.bookingId;
     }
 
     if (!mounted || !context.mounted) return;
@@ -626,7 +645,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           transactionId: reference,
           amount: _total,
           currency: widget.currency,
-          bookingId: widget.bookingId,
+          bookingId: successBookingId,
           successTitle: status == 'paid' ? widget.successTitle : 'Payment Request Sent',
           successMessage: status == 'paid'
               ? widget.successMessage

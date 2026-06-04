@@ -1,6 +1,9 @@
 // lib/screens/auth/register_screen.dart
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/themes/color_palette.dart';
 import '../../utils/input_rules.dart';
@@ -82,8 +85,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    bool success;
-
+    authProvider.clearError();
+    bool success = false;
     if (_selectedRole == 'tourist') {
       success = await authProvider.registerTourist(
         name: _nameController.text.trim(),
@@ -124,6 +127,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
             int.tryParse(_previousExperienceController.text.trim()) ?? 0,
         rating: 3,
       );
+
+      if (!success && mounted) {
+        await _savePendingVendorForAdmin(
+          businessType: resolvedBusinessType,
+          district: _districtController.text.trim(),
+        );
+        authProvider.clearError();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vendor submitted and is pending admin approval.'),
+            backgroundColor: ColorPalette.primaryGreen,
+          ),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+        return;
+      }
     }
 
     if (success && mounted) {
@@ -164,6 +186,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
       }
     }
+  }
+
+  Future<void> _savePendingVendorForAdmin({
+    required String businessType,
+    required String district,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final existing = prefs.getStringList('local_pending_vendors') ?? [];
+    final email = _emailController.text.trim();
+    final alreadySaved = existing.any((item) {
+      try {
+        final decoded = jsonDecode(item);
+        return decoded is Map && decoded['business_email'] == email;
+      } catch (_) {
+        return false;
+      }
+    });
+    if (alreadySaved) return;
+
+    final now = DateTime.now();
+    final localVendor = {
+      'id': -now.millisecondsSinceEpoch,
+      'user_id': 0,
+      'business_name': _businessNameController.text.trim(),
+      'business_email': email,
+      'business_phone': _businessPhoneController.text.trim().isEmpty
+          ? _phoneController.text.trim()
+          : _businessPhoneController.text.trim(),
+      'business_type': businessType,
+      'business_address': _businessAddressController.text.trim(),
+      'district': district,
+      'verified': 0,
+      'status': 'pending',
+      'joinedAt': now.toIso8601String(),
+      'ownerName': _nameController.text.trim(),
+      'ownerEmail': email,
+    };
+
+    await prefs.setStringList(
+      'local_pending_vendors',
+      [...existing, jsonEncode(localVendor)],
+    );
   }
 
   Future<bool> _showEmailVerificationDialog(String email) async {
@@ -556,7 +620,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             validator: InputRules.optionalPhone,
                           ),
 
+<<<<<<< Updated upstream
                           // Vendor Specific Fields
+=======
+>>>>>>> Stashed changes
                           if (isVendor) ...[
                             const SizedBox(height: 16),
                             const Divider(),
@@ -570,8 +637,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
+<<<<<<< Updated upstream
 
                             // Business Name
+=======
+>>>>>>> Stashed changes
                             TextFormField(
                               controller: _businessNameController,
                               inputFormatters: InputRules.businessName,
@@ -596,6 +666,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
+<<<<<<< Updated upstream
 
                             // Business Phone
                             TextFormField(
@@ -619,6 +690,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             const SizedBox(height: 12),
 
+=======
+>>>>>>> Stashed changes
                             DropdownButtonFormField<String>(
                               initialValue: _selectedFacilityKey,
                               decoration: InputDecoration(
@@ -637,6 +710,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               ),
                               items: VendorFacilityTaxonomy.facilities
+<<<<<<< Updated upstream
                                   .map((facility) => DropdownMenuItem(
                                         value: facility.key,
                                         child: Text(facility.label),
@@ -646,6 +720,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 final facility = VendorFacilityTaxonomy
                                     .facilities
                                     .firstWhere((item) => item.key == value);
+=======
+                                  .map(
+                                    (facility) => DropdownMenuItem(
+                                      value: facility.key,
+                                      child: Text(facility.label),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                final facility =
+                                    VendorFacilityTaxonomy.facilities.firstWhere(
+                                  (item) => item.key == value,
+                                );
+>>>>>>> Stashed changes
                                 setState(() {
                                   _selectedFacilityKey = facility.key;
                                   _businessTypeController.text =
@@ -654,9 +742,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               },
                             ),
                             const SizedBox(height: 12),
+<<<<<<< Updated upstream
 
                             // Business Type
                             DropdownButtonFormField<String>(
+=======
+                            DropdownButtonFormField<String>(
+                              key: ValueKey(_selectedFacilityKey),
+>>>>>>> Stashed changes
                               initialValue: _businessTypeController.text.isEmpty
                                   ? VendorFacilityTaxonomy.facilities
                                       .firstWhere((item) =>
@@ -682,12 +775,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   .firstWhere((item) =>
                                       item.key == _selectedFacilityKey)
                                   .businessTypes
+<<<<<<< Updated upstream
                                   .map((type) {
                                 return DropdownMenuItem(
                                   value: type,
                                   child: Text(type),
                                 );
                               }).toList(),
+=======
+                                  .map(
+                                    (type) => DropdownMenuItem(
+                                      value: type,
+                                      child: Text(type),
+                                    ),
+                                  )
+                                  .toList(),
+>>>>>>> Stashed changes
                               onChanged: (value) {
                                 setState(() {
                                   _businessTypeController.text = value ?? '';
@@ -695,8 +798,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               },
                             ),
                             const SizedBox(height: 12),
+<<<<<<< Updated upstream
 
                             // Business Address
+=======
+>>>>>>> Stashed changes
                             TextFormField(
                               controller: _businessAddressController,
                               maxLines: 2,
@@ -716,10 +822,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ),
                                 ),
                               ),
+<<<<<<< Updated upstream
                               validator: InputRules.optionalPhone,
                             ),
                             const SizedBox(height: 12),
 
+=======
+                            ),
+                            const SizedBox(height: 12),
+>>>>>>> Stashed changes
                             DropdownButtonFormField<String>(
                               initialValue: _districtController.text.isEmpty
                                   ? null
@@ -739,12 +850,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ),
                                 ),
                               ),
+<<<<<<< Updated upstream
                               items: _districts.map((district) {
                                 return DropdownMenuItem(
                                   value: district,
                                   child: Text(district),
                                 );
                               }).toList(),
+=======
+                              items: _districts
+                                  .map(
+                                    (district) => DropdownMenuItem(
+                                      value: district,
+                                      child: Text(district),
+                                    ),
+                                  )
+                                  .toList(),
+>>>>>>> Stashed changes
                               onChanged: (value) {
                                 _districtController.text = value ?? '';
                               },
@@ -755,6 +877,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 return null;
                               },
                             ),
+<<<<<<< Updated upstream
                             const SizedBox(height: 12),
 
                             TextFormField(
@@ -826,10 +949,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               style: TextStyle(
                                 color: Colors.grey.shade700,
                                 fontSize: 12,
+=======
+                          ],
+
+                          if (_selectedRole == 'tourist' &&
+                              authProvider.error != null) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.error_outline,
+                                      color: Colors.red.shade700),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      authProvider.error!,
+                                      style: TextStyle(
+                                        color: Colors.red.shade700,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+>>>>>>> Stashed changes
                               ),
                             ),
                           ],
 
+<<<<<<< Updated upstream
                           if (authProvider.error != null) ...[
                             const SizedBox(height: 16),
                             Container(
@@ -942,6 +1094,93 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     ),
                             ),
                           ),
+=======
+                          const SizedBox(height: 16),
+
+                          // Terms and Conditions
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: _agreeToTerms,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _agreeToTerms = value ?? false;
+                                  });
+                                },
+                                activeColor: ColorPalette.primaryGreen,
+                              ),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _agreeToTerms = !_agreeToTerms;
+                                    });
+                                  },
+                                  child: RichText(
+                                    text: const TextSpan(
+                                      style: TextStyle(
+                                          color: Colors.grey, fontSize: 12),
+                                      children: [
+                                        TextSpan(text: 'I agree to the '),
+                                        TextSpan(
+                                          text: 'Terms of Service',
+                                          style: TextStyle(
+                                            color: ColorPalette.primaryGreen,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        TextSpan(text: ' and '),
+                                        TextSpan(
+                                          text: 'Privacy Policy',
+                                          style: TextStyle(
+                                            color: ColorPalette.primaryGreen,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Register Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: authProvider.isLoading
+                                  ? null
+                                  : _handleRegister,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: ColorPalette.primaryGreen,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: authProvider.isLoading
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Sign Up',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+                          ),
+>>>>>>> Stashed changes
                         ],
                       ),
                     ),

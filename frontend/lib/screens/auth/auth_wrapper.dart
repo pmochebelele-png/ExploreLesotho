@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../admin/admin_dashboard.dart';
 import '../home/tourist_dashboard.dart';
+import '../public/public_landing_screen.dart';
 import '../vendor/vendor_dashboard.dart';
-import 'login_screen.dart';
 
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
@@ -24,7 +24,7 @@ class AuthWrapper extends StatelessWidget {
     }
 
     if (!authProvider.isAuthenticated) {
-      return const LoginScreen();
+      return const PublicLandingScreen();
     }
 
     switch (user?.role) {
