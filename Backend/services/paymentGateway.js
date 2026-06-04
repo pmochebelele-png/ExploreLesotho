@@ -62,9 +62,11 @@ function mpesaUrl(pathType) {
 
 function normalizePem(value) {
     if (!value) return '';
-    const trimmed = value.trim().replace(/\\n/g, '\n');
+    const trimmed = value.trim().replace(/^['"]|['"]$/g, '').replace(/\\n/g, '\n');
     if (trimmed.includes('BEGIN PUBLIC KEY')) return trimmed;
-    return `-----BEGIN PUBLIC KEY-----\n${trimmed}\n-----END PUBLIC KEY-----`;
+    const body = trimmed.replace(/\s+/g, '');
+    const wrapped = body.match(/.{1,64}/g)?.join('\n') || body;
+    return `-----BEGIN PUBLIC KEY-----\n${wrapped}\n-----END PUBLIC KEY-----`;
 }
 
 function encryptWithMpesaPublicKey(value) {
