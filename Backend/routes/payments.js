@@ -348,8 +348,12 @@ router.post('/callback', async (req, res) => {
 
         await connection.beginTransaction();
         const [rows] = await connection.execute(
-            `SELECT * FROM payment_transactions WHERE reference = ? FOR UPDATE`,
-            [callback.reference]
+            `SELECT * FROM payment_transactions
+             WHERE reference = ? OR provider_reference = ?
+             ORDER BY created_at DESC
+             LIMIT 1
+             FOR UPDATE`,
+            [callback.reference, callback.reference]
         );
         if (rows.length === 0) {
             await connection.rollback();
@@ -367,7 +371,7 @@ router.post('/callback', async (req, res) => {
                 callback.providerReference || null,
                 JSON.stringify(callback.raw),
                 callback.status,
-                callback.reference,
+                payment.reference,
             ]
         );
 

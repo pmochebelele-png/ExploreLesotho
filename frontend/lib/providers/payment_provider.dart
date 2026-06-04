@@ -1,4 +1,3 @@
-// lib/providers/payment_provider.dart
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -6,17 +5,18 @@ import '../models/payment.dart';
 import '../services/api_service.dart';
 
 class PaymentProvider extends ChangeNotifier {
-  PaymentProvider({ApiService? apiService}) : _apiService = apiService ?? ApiService();
-
-  final ApiService _apiService;
   bool _isProcessing = false;
   bool get isProcessing => _isProcessing;
-  
+
   String? _error;
   String? get error => _error;
-  
+
   final List<Payment> _paymentHistory = [];
   List<Payment> get paymentHistory => _paymentHistory;
+
+  final ApiService _api;
+
+  PaymentProvider({ApiService? apiService}) : _api = apiService ?? ApiService();
 
   Future<Map<String, dynamic>> initiatePayment({
     required BuildContext context,
@@ -35,75 +35,98 @@ class PaymentProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiService.post(
-        '/payments/initiate',
-        {
-          'purpose': purpose,
-          'relatedId': relatedId ?? bookingId,
-          'amount': amount,
-          'serviceFee': serviceFee,
-          'currency': currency,
-          'method': method.name,
-          'phone': paymentDetails['phone'],
-          'description': paymentDetails['description'],
-          'metadata': metadata ?? paymentDetails['metadata'] ?? {},
-        },
-      );
+      final phone = paymentDetails['phone']?.toString().trim() ?? '';
+      final description = paymentDetails['description']?.toString() ??
+          'Explore Lesotho payment';
 
-      final body = json.decode(response.body);
-      if ((response.statusCode == 200 || response.statusCode == 201) &&
-          body['success'] == true) {
-        final reference = body['paymentReference']?.toString() ?? '';
-        final payment = Payment(
-          id: reference,
-          bookingId: bookingId,
-          amount: amount,
-          currency: currency,
-          method: method,
-          status: body['status'] == 'paid'
-              ? PaymentStatus.completed
-              : PaymentStatus.pending,
-          transactionId: body['providerReference']?.toString() ?? reference,
-          createdAt: DateTime.now(),
-          completedAt: body['status'] == 'paid' ? DateTime.now() : null,
-        );
-        _paymentHistory.insert(0, payment);
-        _isProcessing = false;
-        notifyListeners();
-        return {
-          'success': true,
-          'status': body['status'],
-          'paymentReference': reference,
-          'providerReference': body['providerReference'],
-          'customerMessage': body['customerMessage'] ??
-              'Payment request sent. Confirm it on your phone.',
-          'payment': payment,
-        };
+      final response = await _api.post('/payments/initiate', {
+        'purpose': purpose,
+        'method': _methodToApiValue(method),
+        'phone': phone,
+        'amount': amount,
+        'currency': currency,
+        'relatedId': relatedId ?? bookingId,
+        'serviceFee': serviceFee,
+        'description': description,
+        'metadata': metadata ?? {},
+      }).timeout(const Duration(seconds: 45));
+
+      final body = response.body.isNotEmpty
+          ? json.decode(response.body) as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      if (response.statusCode < 200 || response.statusCode >= 300 || body['success'] != true) {
+        final message = body['error']?.toString() ??
+            body['message']?.toString() ??
+            'Payment request failed. Please try again.';
+        throw Exception(message);
       }
 
-      _error = body['error']?.toString() ??
-          body['message']?.toString() ??
-          'Failed to start payment';
+      final reference = body['paymentReference']?.toString() ??
+          'PAY${DateTime.now().millisecondsSinceEpoch}';
+      final statusText = body['status']?.toString().toLowerCase() ?? 'pending';
+      final status = statusText == 'paid'
+          ? PaymentStatus.completed
+          : PaymentStatus.pending;
+
+      final payment = Payment(
+        id: reference,
+        bookingId: bookingId,
+        amount: amount,
+        currency: currency,
+        method: method,
+        status: status,
+        transactionId: body['providerReference']?.toString() ?? reference,
+        createdAt: DateTime.now(),
+        completedAt: status == PaymentStatus.completed ? DateTime.now() : null,
+      );
+
+      _paymentHistory.insert(0, payment);
       _isProcessing = false;
       notifyListeners();
-      return {'success': false, 'error': _error};
+
+      return {
+        'success': true,
+        ...body,
+        'payment': payment,
+      };
     } catch (e) {
-      _error = e.toString();
+      final message = e.toString().replaceFirst('Exception: ', '');
+      _error = message;
       _isProcessing = false;
       notifyListeners();
 
       return {
         'success': false,
-        'error': e.toString(),
+        'error': message,
       };
     }
   }
-  
+
+  String _methodToApiValue(PaymentMethod method) {
+    switch (method) {
+      case PaymentMethod.mpesa:
+        return 'mpesa';
+      case PaymentMethod.ecoCash:
+        return 'ecocash';
+      case PaymentMethod.creditCard:
+        return 'credit_card';
+      case PaymentMethod.debitCard:
+        return 'debit_card';
+      case PaymentMethod.flutterwave:
+        return 'flutterwave';
+      case PaymentMethod.paypal:
+        return 'paypal';
+      case PaymentMethod.stripe:
+        return 'stripe';
+    }
+  }
+
   void clearError() {
     _error = null;
     notifyListeners();
   }
-  
+
   void clearHistory() {
     _paymentHistory.clear();
     notifyListeners();
