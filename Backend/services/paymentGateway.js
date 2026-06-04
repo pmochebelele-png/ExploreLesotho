@@ -30,6 +30,31 @@ async function postJson(url, payload, headers = {}) {
     return body;
 }
 
+async function getJson(url, headers = {}) {
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+            Accept: 'application/json',
+            ...headers,
+        },
+    });
+
+    const text = await response.text();
+    let body = {};
+    try {
+        body = text ? JSON.parse(text) : {};
+    } catch (_) {
+        body = { raw: text };
+    }
+
+    if (!response.ok) {
+        const message = body.message || body.error || `Provider returned ${response.status}`;
+        throw new Error(message);
+    }
+
+    return body;
+}
+
 function mpesaBaseUrl() {
     return (process.env.MPESA_BASE_URL || 'https://openapi.m-pesa.com').replace(/\/$/, '');
 }
@@ -99,9 +124,8 @@ async function getMpesaSessionKey() {
     }
 
     const encryptedApiKey = encryptWithMpesaPublicKey(apiKey);
-    const response = await postJson(
+    const response = await getJson(
         mpesaUrl('session'),
-        {},
         {
             Authorization: `Bearer ${encryptedApiKey}`,
             Origin: process.env.MPESA_ORIGIN || '*',
