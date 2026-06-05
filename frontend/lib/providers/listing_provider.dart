@@ -27,8 +27,66 @@ class ListingProvider extends ChangeNotifier {
     }
   }
 
+  bool _isLegacyGoogleHotel(Listing listing) {
+    final id = listing.id.trim().toLowerCase();
+    if (id.startsWith('map-hotel-') || id.startsWith('google-')) {
+      return true;
+    }
+
+    final source =
+        listing.additionalDetails?['source']?.toString().toLowerCase();
+    final sourceLabel =
+        listing.additionalDetails?['sourceLabel']?.toString().toLowerCase();
+    if (source == 'google_places' ||
+        sourceLabel == 'google places' ||
+        sourceLabel == 'maseru hotel map') {
+      return true;
+    }
+
+    const legacyHotelTitles = {
+      'noble hearts bed & breakfast',
+      'foothills guesthouse',
+      'mpilo boutique hotel',
+      'city stay west',
+      'denver echo executive guesthouse',
+      'seilatsatsi b&b',
+      'scenery guest house maqilika',
+      'scenery guest house maqalika',
+      'lakeside hotel',
+      'mohalalitoe bed & breakfast',
+      'my kasi home bnb',
+      'taung guesthouse',
+      'city stay maseru',
+      'thabeng hotel & restaurant',
+      'jate guest house',
+      'the anne guest house',
+      'khali hotel',
+      'mohokare guest house',
+      'lancer\'s inn hotel maseru',
+      'avani maseru hotel',
+      'hokahanya inn & conference centre',
+      'hokahanya inn & c...',
+      'the mon bnb',
+    };
+    final title = listing.title.trim().toLowerCase();
+    if (source == 'fallback' &&
+        _normalizeCategory(listing.category) == 'accommodation') {
+      return legacyHotelTitles.any((legacyTitle) =>
+          title == legacyTitle ||
+          title.startsWith(legacyTitle.replaceAll('...', '').trim()));
+    }
+
+    return legacyHotelTitles.any((legacyTitle) =>
+        title == legacyTitle ||
+        title.startsWith(legacyTitle.replaceAll('...', '').trim()));
+  }
+
+  List<Listing> _withoutLegacyGoogleHotels(Iterable<Listing> listings) {
+    return listings.where((listing) => !_isLegacyGoogleHotel(listing)).toList();
+  }
+
   List<Listing> get listings {
-    List<Listing> filtered = _listings;
+    List<Listing> filtered = _withoutLegacyGoogleHotels(_listings);
 
     // Apply category filter
     if (_selectedCategory != 'All') {
@@ -70,10 +128,11 @@ class ListingProvider extends ChangeNotifier {
   }
 
   List<Listing> topFamousListings({int limit = 10}) {
+    final sourceListings = _withoutLegacyGoogleHotels(_listings);
     final available =
-        _listings.where((listing) => listing.isAvailable).toList();
+        sourceListings.where((listing) => listing.isAvailable).toList();
     final ranked =
-        available.isNotEmpty ? available : List<Listing>.from(_listings);
+        available.isNotEmpty ? available : List<Listing>.from(sourceListings);
     ranked.sort((a, b) => _fameScore(b).compareTo(_fameScore(a)));
 
     final selected = <Listing>[];
@@ -108,7 +167,7 @@ class ListingProvider extends ChangeNotifier {
     return selected.take(limit).toList();
   }
 
-  List<Listing> get allListings => List<Listing>.from(_listings);
+  List<Listing> get allListings => _withoutLegacyGoogleHotels(_listings);
 
   String get selectedCategory => _selectedCategory;
   String get selectedCultureType => _selectedCultureType;
@@ -143,7 +202,9 @@ class ListingProvider extends ChangeNotifier {
 
   void _applyFetchResult(Map<String, dynamic> result) {
     if (result['success'] == true) {
-      _listings = List<Listing>.from(result['listings'] ?? []);
+      _listings = _withoutLegacyGoogleHotels(
+        List<Listing>.from(result['listings'] ?? []),
+      );
       _mergeTourismSeedListings();
       _error = null;
       _isOfflineMode = false;
@@ -184,7 +245,7 @@ class ListingProvider extends ChangeNotifier {
     } else {
       final cachedListings = await _cacheService?.loadListings() ?? const [];
       if (cachedListings.isNotEmpty) {
-        _listings = cachedListings;
+        _listings = _withoutLegacyGoogleHotels(cachedListings);
         _mergeTourismSeedListings();
         _isOfflineMode = true;
         _error = 'Offline mode: showing cached listings';
@@ -209,7 +270,7 @@ class ListingProvider extends ChangeNotifier {
     } else if (_listings.isEmpty) {
       final cachedListings = await _cacheService?.loadListings() ?? const [];
       if (cachedListings.isNotEmpty) {
-        _listings = cachedListings;
+        _listings = _withoutLegacyGoogleHotels(cachedListings);
         _mergeTourismSeedListings();
         _isOfflineMode = true;
         _lastSyncedAt = _cacheService?.getListingsLastUpdated();
