@@ -1,3 +1,7 @@
+// ignore_for_file: dead_code, unused_element, unused_import
+
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/themes/color_palette.dart';
@@ -9,6 +13,7 @@ import '../../providers/listing_provider.dart';
 import '../../providers/locale_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/test_chat_provider.dart';
+import '../../models/listing.dart';
 import '../../services/connectivity_service.dart';
 import '../../utils/responsive_layout.dart';
 import '../../widgets/dashboard_navigation_drawer.dart';
@@ -54,42 +59,13 @@ class _TouristDashboardState extends State<TouristDashboard> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _dashboardScrollController = ScrollController();
   final PageController _heroPageController = PageController();
+  Timer? _heroTimer;
+  int _heroSlideIndex = 0;
   final MlService _mlService = MlService();
   Map<String, dynamic>? _aiDashboard;
   List<Map<String, dynamic>> _aiRecommendations = [];
   List<Map<String, dynamic>> _aiHotspots = [];
   bool _aiLoading = false;
-<<<<<<< Updated upstream
-  bool _showLegacyAiSections = false;
-  Timer? _searchDebounce;
-  Timer? _heroTimer;
-  int _heroSlideIndex = 0;
-
-  static const List<_HomeHeroSlide> _homeHeroSlides = [
-    _HomeHeroSlide(
-      asset: 'assets/images/tourism_seed/thaba_bosiu_1.jpg',
-      title: 'Explore the Kingdom in the Sky',
-      subtitle:
-          'Discover heritage, culture, adventure, and trusted places to stay.',
-      tag: 'Heritage',
-    ),
-    _HomeHeroSlide(
-      asset: 'assets/images/tourism_seed/katse_dam_1.jpg',
-      title: 'Plan Smarter Lesotho Journeys',
-      subtitle:
-          'Compare tours, accommodation, transport, food, and events in one place.',
-      tag: 'Travel Planning',
-    ),
-    _HomeHeroSlide(
-      asset: 'assets/images/tourism_seed/afriski_1.jpg',
-      title: 'Book Real Local Experiences',
-      subtitle:
-          'Connect tourists with verified vendors and tourism facilities.',
-      tag: 'Book & Discover',
-    ),
-  ];
-=======
->>>>>>> Stashed changes
 
   final List<String> _categories = [
     'All',
@@ -100,6 +76,29 @@ class _TouristDashboardState extends State<TouristDashboard> {
     'Adventure',
     'Upcoming Events',
   ];
+  static const List<_HomeHeroSlide> _homeHeroSlides = [
+    _HomeHeroSlide(
+      asset: 'assets/images/tourism_seed/maletsunyane_1.jpg',
+      title: 'Find your Lesotho escape',
+      subtitle:
+          'Search mountain lodges, pony trekking, heritage tours, events, and verified local tourism vendors.',
+      tag: 'Kingdom in the Sky',
+    ),
+    _HomeHeroSlide(
+      asset: 'assets/images/tourism_seed/kome_caves_1.jpg',
+      title: 'Discover Basotho heritage',
+      subtitle:
+          'Explore culture, crafts, festivals, history, and traditional wear from trusted local hosts.',
+      tag: 'Culture',
+    ),
+    _HomeHeroSlide(
+      asset: 'assets/images/tourism_seed/afriski_1.jpg',
+      title: 'Book real local experiences',
+      subtitle:
+          'Plan stays, adventures, tours, and events with one smooth tourism marketplace.',
+      tag: 'Book and Discover',
+    ),
+  ];
   VoidCallback? _connectivityListener;
 
   @override
@@ -109,7 +108,11 @@ class _TouristDashboardState extends State<TouristDashboard> {
     _startHeroSlider();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<ListingProvider>(context, listen: false).loadListings();
+      final listingProvider =
+          Provider.of<ListingProvider>(context, listen: false);
+      if (listingProvider.allListings.isEmpty) {
+        listingProvider.loadListings();
+      }
       Provider.of<CultureProvider>(context, listen: false).loadInitial();
       Provider.of<BookingProvider>(context, listen: false).refresh();
       Provider.of<EventProvider>(context, listen: false).fetchUpcomingEvents();
@@ -130,13 +133,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
-<<<<<<< Updated upstream
-    _searchDebounce?.cancel();
-    _heroTimer?.cancel();
-=======
->>>>>>> Stashed changes
     _searchController.dispose();
     _dashboardScrollController.dispose();
+    _heroTimer?.cancel();
     _heroPageController.dispose();
     final listener = _connectivityListener;
     if (listener != null) {
@@ -250,8 +249,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
         final normalizedTitle = _normalizeDiscoveryName(listing.title);
         if (normalizedTitle.isNotEmpty &&
             (normalizedTitle == normalizedHotspot ||
-            normalizedTitle.contains(normalizedHotspot) ||
-            normalizedHotspot.contains(normalizedTitle))) {
+                normalizedTitle.contains(normalizedHotspot) ||
+                normalizedHotspot.contains(normalizedTitle))) {
           if (!mounted) return;
           Navigator.push(
             context,
@@ -603,6 +602,12 @@ class _TouristDashboardState extends State<TouristDashboard> {
     final isOverview = listingProvider.selectedCategory == 'All';
     final isCultureView = listingProvider.selectedCategory == 'Culture';
     final isEventsView = listingProvider.selectedCategory == 'Upcoming Events';
+    final hasActiveSearch = _searchController.text.trim().isNotEmpty;
+    final visibleListings = isCultureView || isEventsView
+        ? const <Listing>[]
+        : isOverview && !hasActiveSearch
+            ? listingProvider.topFamousListings(limit: isMobile ? 6 : 10)
+            : listingProvider.listings;
     final cultureMarketplaceItems = isCultureView
         ? _cultureMarketplaceItems(cultureProvider.selectedSubcategorySlug)
         : const <_CultureMarketplaceItem>[];
@@ -621,7 +626,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
         ? eventProvider.upcomingEvents.length
         : isCultureView
             ? cultureMarketplaceItems.length
-            : listingProvider.listings.length;
+            : visibleListings.length;
     final activeLoading = isEventsView
         ? eventProvider.isUpcomingLoading
         : isCultureView
@@ -629,7 +634,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
             : listingProvider.isLoading;
     final showcaseHotspots = _aiHotspots.isNotEmpty
         ? _aiHotspots.take(4).toList()
-        : listingProvider.listings
+        : visibleListings
             .take(4)
             .map(
               (listing) => <String, dynamic>{
@@ -754,26 +759,6 @@ class _TouristDashboardState extends State<TouristDashboard> {
                         fontSize: fontSize,
                         padding: padding,
                       ),
-                      if (isOverview)
-                        Padding(
-                          padding: padding.copyWith(top: 0, bottom: 12),
-                          child: _buildHomeExperienceHero(
-                            context: context,
-                            locale: locale,
-                            isMobile: isMobile,
-                            fontSize: fontSize,
-                          ),
-                        ),
-                      if (isOverview)
-                        Padding(
-                          padding: padding.copyWith(top: 0, bottom: 12),
-                          child: _buildAboutMissionVision(
-                            context: context,
-                            locale: locale,
-                            isMobile: isMobile,
-                            fontSize: fontSize,
-                          ),
-                        ),
                       Padding(
                         padding: EdgeInsets.fromLTRB(
                           isMobile ? 16 : 56,
@@ -827,17 +812,6 @@ class _TouristDashboardState extends State<TouristDashboard> {
                           ),
                         ),
                       ),
-<<<<<<< Updated upstream
-                      if (!isOverview)
-                        Padding(
-                          padding: padding.copyWith(top: 0, bottom: 12),
-                          child: _buildDiscoverHero(
-                            locale: locale,
-                            isOverview: isOverview,
-                            listingCount: activeResultCount,
-                            fontSize: fontSize,
-                          ),
-=======
                       Padding(
                         padding: padding.copyWith(top: 0, bottom: 12),
                         child: _buildDiscoverHero(
@@ -847,8 +821,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
                           fontSize: fontSize,
                           isMobile: isMobile,
                           showcaseHotspots: showcaseHotspots,
->>>>>>> Stashed changes
                         ),
+                      ),
                       Padding(
                         padding: padding.copyWith(top: 0, bottom: 10),
                         child: _buildSectionHeading(
@@ -1020,6 +994,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                                 listingProvider: listingProvider,
                                 cultureProvider: cultureProvider,
                                 fontSize: fontSize,
+                                resultsCountOverride: activeResultCount,
                               ),
                       ),
                       if (activeOfflineMode && activeResultCount > 0)
@@ -1151,7 +1126,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                             );
                           }
 
-                          final listing = listingProvider.listings[index];
+                          final listing = visibleListings[index];
                           return ListingCard(
                             listing: listing,
                             onTap: () {
@@ -1168,7 +1143,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                         },
                         childCount: isCultureView
                             ? cultureMarketplaceItems.length
-                            : listingProvider.listings.length,
+                            : visibleListings.length,
                       ),
                     ),
                   ),
@@ -2705,6 +2680,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
     required ListingProvider listingProvider,
     required CultureProvider cultureProvider,
     required double fontSize,
+    int? resultsCountOverride,
   }) {
     final activeCategory = listingProvider.selectedCategory;
     String? selectedCulture;
@@ -2721,12 +2697,13 @@ class _TouristDashboardState extends State<TouristDashboard> {
         (activeCategory == 'Culture' && selectedCulture != null)
             ? ' • $selectedCulture'
             : '';
-    final resultsCount = activeCategory == 'Culture'
-        ? _cultureMarketplaceItems(cultureProvider.selectedSubcategorySlug)
-            .length
-        : listingProvider.listings.length;
+    final resultsCount = resultsCountOverride ??
+        (activeCategory == 'Culture'
+            ? _cultureMarketplaceItems(cultureProvider.selectedSubcategorySlug)
+                .length
+            : listingProvider.listings.length);
     final categoryLabel = (activeCategory == 'All'
-            ? locale.translate('Overview', 'Kakaretso')
+            ? locale.translate('Top picks', 'Dikgetho tse hodimo')
             : _getTranslatedCategory(activeCategory, locale)) +
         cultureSuffix;
 
@@ -3363,41 +3340,6 @@ class _TouristDashboardState extends State<TouristDashboard> {
     if (slug == 'all') return all;
     return all.where((item) => item.slug == slug).toList();
   }
-<<<<<<< Updated upstream
-
-  Widget _contactPill({
-    required IconData icon,
-    required String label,
-    required bool compact,
-  }) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 10 : 12,
-        vertical: 8,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: compact ? 15 : 17, color: const Color(0xFFBDE05A)),
-          const SizedBox(width: 7),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: compact ? 11 : 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-=======
->>>>>>> Stashed changes
 }
 
 class _CultureMarketplaceItem {
@@ -3621,4 +3563,3 @@ class _CultureItemImage extends StatelessWidget {
     return Image.asset(item.fallbackAsset, fit: BoxFit.cover);
   }
 }
-

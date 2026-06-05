@@ -60,6 +60,54 @@ class ListingProvider extends ChangeNotifier {
     return filtered;
   }
 
+  double _fameScore(Listing listing) {
+    final ratingScore = (listing.rating ?? 0) * 20;
+    final reviewScore =
+        (listing.reviewCount ?? 0).clamp(0, 500).toDouble() / 10;
+    final featuredScore = listing.isFeatured ? 40 : 0;
+    final availabilityScore = listing.isAvailable ? 8 : 0;
+    return featuredScore + ratingScore + reviewScore + availabilityScore;
+  }
+
+  List<Listing> topFamousListings({int limit = 10}) {
+    final available =
+        _listings.where((listing) => listing.isAvailable).toList();
+    final ranked =
+        available.isNotEmpty ? available : List<Listing>.from(_listings);
+    ranked.sort((a, b) => _fameScore(b).compareTo(_fameScore(a)));
+
+    final selected = <Listing>[];
+    final usedIds = <String>{};
+    final categories = <String>[
+      'Accommodation',
+      'Tour',
+      'Experience',
+      'Culture',
+      'Adventure',
+    ];
+
+    for (final category in categories) {
+      for (final listing in ranked) {
+        if (_normalizeCategory(listing.category) ==
+                _normalizeCategory(category) &&
+            !usedIds.contains(listing.id)) {
+          selected.add(listing);
+          usedIds.add(listing.id);
+          break;
+        }
+      }
+    }
+
+    for (final listing in ranked) {
+      if (selected.length >= limit) break;
+      if (usedIds.add(listing.id)) {
+        selected.add(listing);
+      }
+    }
+
+    return selected.take(limit).toList();
+  }
+
   List<Listing> get allListings => List<Listing>.from(_listings);
 
   String get selectedCategory => _selectedCategory;
@@ -179,13 +227,13 @@ class ListingProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-      try {
-        final result = await _listingService.createListing(listing);
-        if (result['success'] == true && result['listing'] != null) {
-          _listings.insert(0, result['listing'] as Listing);
-          await _cacheService?.saveListings(_listings);
-          _lastSyncedAt = _cacheService?.getListingsLastUpdated();
-        } else {
+    try {
+      final result = await _listingService.createListing(listing);
+      if (result['success'] == true && result['listing'] != null) {
+        _listings.insert(0, result['listing'] as Listing);
+        await _cacheService?.saveListings(_listings);
+        _lastSyncedAt = _cacheService?.getListingsLastUpdated();
+      } else {
         _error = result['error']?.toString() ?? 'Failed to create listing';
         _isLoading = false;
         notifyListeners();
@@ -208,17 +256,17 @@ class ListingProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-      try {
-        final result = await _listingService.updateListing(listing);
-        if (result['success'] == true && result['listing'] != null) {
-          final updatedListing = result['listing'] as Listing;
-          final index = _listings.indexWhere((l) => l.id == listing.id);
-          if (index != -1) {
-            _listings[index] = updatedListing;
-          }
-          await _cacheService?.saveListings(_listings);
-          _lastSyncedAt = _cacheService?.getListingsLastUpdated();
-          _isLoading = false;
+    try {
+      final result = await _listingService.updateListing(listing);
+      if (result['success'] == true && result['listing'] != null) {
+        final updatedListing = result['listing'] as Listing;
+        final index = _listings.indexWhere((l) => l.id == listing.id);
+        if (index != -1) {
+          _listings[index] = updatedListing;
+        }
+        await _cacheService?.saveListings(_listings);
+        _lastSyncedAt = _cacheService?.getListingsLastUpdated();
+        _isLoading = false;
         notifyListeners();
         return true;
       }
@@ -240,13 +288,13 @@ class ListingProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-      try {
-        final result = await _listingService.deleteListing(listingId);
-        if (result['success'] == true) {
-          _listings.removeWhere((l) => l.id == listingId);
-          await _cacheService?.saveListings(_listings);
-          _lastSyncedAt = _cacheService?.getListingsLastUpdated();
-        } else {
+    try {
+      final result = await _listingService.deleteListing(listingId);
+      if (result['success'] == true) {
+        _listings.removeWhere((l) => l.id == listingId);
+        await _cacheService?.saveListings(_listings);
+        _lastSyncedAt = _cacheService?.getListingsLastUpdated();
+      } else {
         _error = result['error']?.toString() ?? 'Failed to delete listing';
         _isLoading = false;
         notifyListeners();
