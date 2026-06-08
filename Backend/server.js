@@ -139,6 +139,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/ml', mlRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/payments', paymentRoutes);
 app.use('/api/travel', travelRoutes);
 
 // ============================================
